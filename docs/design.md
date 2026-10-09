@@ -31,6 +31,11 @@ There is no HTTP server. A route here is an in-app address, not a URL on the net
 | `app://review` | Review | US-004, US-005, US-010 | Tap an unclear row, answer, dismiss | local, no account |
 | `app://ledger` | Ledger | US-007 | Open a past review | local, no account |
 | `app://privacy` | Privacy | US-008, US-009 | Drop memory, delete the file, run the eval | local, no account |
+| `app://mini` | Mini window | US-001 | End the session | local, no account |
+| `app://desktop-widget` | Desktop widget | US-001 | Read-only session display (macOS only) | local, no account |
+| `ext://popup` | Extension popup | US-001 | Read-only session display | local, no account |
+
+All three secondary surfaces (`app://mini`, `app://desktop-widget`, `ext://popup`) follow BR-001: intention and clock only, no verdicts, warnings, or praise.
 
 `local, no account` is the expectation on every route. There is no signed-in state to reach by mistake. No security doc is in this set. `context.md` sets `exposed_surface` to false.
 
@@ -57,6 +62,8 @@ flowchart LR
 | SessionRow | Intention plus outcome in words | Ledger | empty, filled |
 | PrivacyFacts | Model-call count, model id, no-network line | Privacy | no model, model named |
 | ConfirmStep | Second step before a delete | Privacy | drop memory, delete file |
+| TrayMenu | Context menu options on Linux tray | Idle popover, Running | idle, running |
+| PopoverAnchor | Anchors and positions frameless tray popovers | Idle popover, Running | default |
 
 ## 4. Tokens
 
@@ -98,7 +105,7 @@ Last synced: 2026-10-09, against an empty tree.
 
 **Tool/library defaults this project deliberately overrides:**
 
-- No UI library is chosen, so there is no default to override yet. When Bennet picks a shell, this section records any default that the running screen would otherwise animate.
+- React through electron-vite (scaffold: `npm create node-llama-cpp@latest -- --template electron-typescript-react`). Default styling and components inherit OS theme via CSS variables; no external component library or unrequested animation presets.
 
 ## 9. Key Screen Specs
 
