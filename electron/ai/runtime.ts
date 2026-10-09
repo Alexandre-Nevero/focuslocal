@@ -6,6 +6,8 @@ import type {ModelStatus} from "../../src/shared/types.ts";
 
 let status: ModelStatus = "loading";
 let judge: Judge | null = null;
+let started = false;
+let stopping = false;
 let settle: () => void;
 /** Resolves once loading ends, ready or not. Harness waits on it so visits closed during load are not stored unclear. */
 export const runtimeSettled = new Promise<void>((resolve) => settle = resolve);
@@ -19,12 +21,20 @@ const modelPath = () => (app.isPackaged
 
 /** Loads in the background. Start, End, and the review never wait on it (US-001); if it fails, Harness stores unclear (BR-003). */
 export async function startRuntime() {
+    started = true;
     try {
+        if (stopping)
+            return;
         if (!fs.existsSync(modelPath()))
             status = "missing-file";
         else {
-            judge = await loadJudge(modelPath());
-            status = "ready";
+            const loaded = await loadJudge(modelPath());
+            if (stopping)
+                await loaded.llama.dispose();
+            else {
+                judge = loaded;
+                status = "ready";
+            }
         }
     } catch (err) {
         status = `failed:${err instanceof Error ? err.message : String(err)}`;
@@ -34,6 +44,10 @@ export async function startRuntime() {
 }
 
 export async function stopRuntime() {
-    await judge?.llama.dispose();
+    stopping = true;
+    if (started)
+        await runtimeSettled;
+    const loaded = judge;
     judge = null;
+    await loaded?.llama.dispose();
 }

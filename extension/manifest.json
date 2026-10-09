@@ -1,0 +1,10 @@
+{
+    "manifest_version": 3,
+    "name": "Ledger",
+    "version": "0.1.0",
+    "description": "Relays the active tab to the Ledger app on this computer. Nothing leaves the device.",
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvLywttLrupzAOhW4ZUT3SwDwxBnns8WNU1Rs3yJJA4EDxvq6Ov8dP26wt0n2H2lM+witp1halUfV7uUP6pXYOftViZQ1e3pTmmWKOELtdeZtqaqB6jbAHf3SDzsGDUu/IeKbOQyxdz5ujzeLKwoTGiyLqUAe7lBTyTGE+wlctRj0QVrJQJ+nUF8bPJvuqBMAPn6NUqd7VscjSuKwGXiI88yiQjg3SqoeUTPiqali8PjQk/ogmByy2C4Kh1AvSFlSptgKYvr69SpL0ffE3c7yfLq0a8b1xqUqp2Hm/u+YK6qvUSiX1ckjJjjWgaxKYbRU9gnJa0Azhnbu3+bJsNwZaQIDAQAB",
+    "permissions": ["tabs", "nativeMessaging"],
+    "background": {"service_worker": "background.js"},
+    "action": {"default_popup": "popup.html"}
+}
