@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import xwin from '@miniben90/x-win'
-import { getLlama, getLlamaGpuTypes, InsufficientMemoryError, LlamaChatSession } from 'node-llama-cpp'
+import { getLlama, getLlamaGpuTypes, InsufficientMemoryError, LlamaChatSession, QwenChatWrapper } from 'node-llama-cpp'
 
 const MODEL_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), 'models', 'Qwen3.5-2B-Q4_K_M.gguf')
 const POLL_TICKS = 30
@@ -19,6 +19,10 @@ const PROBES = [
   { app: 'Slack', title: '#random', url: null },
 ]
 const LABELS = ['serves', 'drifts', 'unclear']
+// x-win can return "" for a Chromium tab on the first read; the URL is re-read each tick until it appears.
+const CHROMIUM = new Set(['chrome', 'msedge', 'brave', 'chromium', 'google-chrome'])
+// Throwaway window used to warm S1 and S2 before the probes are timed.
+const WARM_PROBE = { app: 'File Explorer', title: 'Downloads', url: null }
 const S2_SYSTEM =
   'You label one desktop window against the stated intention of a work session. ' +
   'Answer with label serves, drifts, or unclear, and a reason under 140 characters. ' +
@@ -40,7 +44,9 @@ app.whenReady().then(run).then(
 async function run() {
   log({ platform: process.platform, arch: process.arch, totalmemGB: +(os.totalmem() / 2 ** 30).toFixed(1), cpu: os.cpus()[0].model })
   await poll()
-  await judge(await loadRuntime())
+  const runtime = await loadRuntime()
+  await judge(runtime)
+  await runtime.llama.dispose()
 }
 
 function poll() {
@@ -58,17 +64,22 @@ function poll() {
       try {
         const s = performance.now()
         const w = xwin.activeWindow()
+        const xwinMs = Math.round(performance.now() - s)
         const { execName, name, processId } = w.info
         const k = `${execName}\u0000${w.title}`
-        if (k !== key) {
+        const browser = CHROMIUM.has(execName.toLowerCase().replace(/\.exe$/, ''))
+        let urlReadMs
+        if (k !== key || (url === '' && browser)) {
           key = k
+          const u = performance.now()
           try {
             url = w.url
           } catch (err) {
             url = `<url error: ${err.message}>`
           }
+          urlReadMs = Math.round(performance.now() - u)
         }
-        log({ t, execName, name, title: w.title, url, idle, idleState, own: processId === process.pid, xwinMs: Math.round(performance.now() - s) })
+        log({ t, execName, name, title: w.title, url, idle, idleState, own: processId === process.pid, xwinMs, urlReadMs })
       } catch (err) {
         log({ t, error: String(err), idle, idleState })
       }
@@ -103,56 +114,84 @@ async function initModel(gpu) {
       type: 'object',
       properties: { label: { enum: LABELS }, reason: { type: 'string', maxLength: 140 } },
     })
+    // The auto-resolved Qwen 3.5 wrapper force-opens a <think> segment, which swallows the grammar's opening "{".
+    // "discourage" prefills an empty, closed thought so the response is the grammar JSON alone.
+    const session = new LlamaChatSession({
+      contextSequence: chat.getSequence(),
+      chatWrapper: new QwenChatWrapper({ variation: '3.5', thoughts: 'discourage' }),
+      systemPrompt: S2_SYSTEM,
+    })
     const cpuReason = llama.gpu === false
       ? gpu === false ? 'gpu:false after InsufficientMemoryError' : `no usable GPU binary; supported types: ${JSON.stringify(await getLlamaGpuTypes('supported'))}`
       : undefined
     log({ requestedGpu: gpu, gpu: llama.gpu, cpuReason, loadMs, modelSize: model.size })
-    const w = performance.now()
+
+    // warmup() only evaluates the chat prefix; the first choice decide() still pays a one-off ~10 s on Vulkan.
+    // Run one throwaway S1 and S2 so the probes below are timed warm.
+    let w = performance.now()
     await decision.warmup()
-    log({ warmupMs: Math.round(performance.now() - w) })
-    return { llama, decision, session: new LlamaChatSession({ contextSequence: chat.getSequence(), systemPrompt: S2_SYSTEM }), grammar }
+    const warmupMs = Math.round(performance.now() - w)
+    w = performance.now()
+    await s1(decision, docOf(WARM_PROBE))
+    const firstDecideMs = Math.round(performance.now() - w)
+    w = performance.now()
+    await s2(session, grammar, docOf(WARM_PROBE))
+    const firstReasonMs = Math.round(performance.now() - w)
+    log({ warmupMs, firstDecideMs, firstReasonMs })
+    return { llama, decision, session, grammar }
   } catch (err) {
     await llama.dispose()
     throw err
   }
 }
 
+function docOf(p) {
+  return `Intention: ${INTENTION}\nApp: ${p.app}\nTitle: ${p.title.slice(0, 200)}\nURL: ${p.url ?? 'none'}`
+}
+
+async function s1(decision, doc, signal) {
+  const { label } = await decision.decide(
+    doc,
+    {
+      label: {
+        type: 'choice',
+        instruction: 'Does this window serve the stated intention?',
+        criteria: {
+          serves: 'The window is plausibly used to do the intention',
+          drifts: 'The window is unrelated to the intention',
+          unclear: 'Cannot tell from the app, title, and URL',
+        },
+      },
+    },
+    { signal },
+  )
+  return label
+}
+
+async function s2(session, grammar, doc, signal) {
+  session.resetChatHistory()
+  return grammar.parse(await session.prompt(doc, { grammar, maxTokens: 60, signal }))
+}
+
 async function judge({ decision, session, grammar }) {
   for (const p of PROBES) {
-    const doc = `Intention: ${INTENTION}\nApp: ${p.app}\nTitle: ${p.title.slice(0, 200)}\nURL: ${p.url ?? 'none'}`
+    const doc = docOf(p)
     const signal = AbortSignal.timeout(BUDGET_MS)
     const out = { app: p.app, title: p.title }
     const t0 = performance.now()
     try {
-      const { label: s1 } = await decision.decide(
-        doc,
-        {
-          label: {
-            type: 'choice',
-            instruction: 'Does this window serve the stated intention?',
-            criteria: {
-              serves: 'The window is plausibly used to do the intention',
-              drifts: 'The window is unrelated to the intention',
-              unclear: 'Cannot tell from the app, title, and URL',
-            },
-          },
-        },
-        { signal },
-      )
-      out.s1 = { choice: s1.choice, confidence: +s1.confidence.toFixed(3), probabilities: s1.probabilities }
+      const a = await s1(decision, doc, signal)
+      out.s1 = { choice: a.choice, confidence: +a.confidence.toFixed(3), probabilities: a.probabilities }
       out.s1Ms = Math.round(performance.now() - t0)
 
       const t1 = performance.now()
-      session.resetChatHistory()
-      const s2 = grammar.parse(
-        await session.prompt(doc, { grammar, maxTokens: 60, signal, budgets: { thoughtTokens: 0 } }),
-      )
+      const b = await s2(session, grammar, doc, signal)
       out.s2Ms = Math.round(performance.now() - t1)
-      out.s2 = s2
+      out.s2 = b
 
-      const reason = s2.reason.slice(0, 140)
+      const reason = b.reason.slice(0, 140)
       const leaks = [p.title, p.url].some((x) => x && reason.toLowerCase().includes(x.toLowerCase()))
-      out.label = s1.choice === s2.label && s1.choice !== 'unclear' ? s1.choice : 'unclear'
+      out.label = a.choice === b.label && a.choice !== 'unclear' ? a.choice : 'unclear'
       out.confidence = out.s1.confidence
       out.reason = leaks ? null : reason
       out.modelStage = 'reason'
