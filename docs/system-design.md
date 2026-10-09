@@ -141,9 +141,9 @@ Layout of the `electron-typescript-react` template (Vite + `vite-plugin-electron
 - `electron/ipc.ts`: the handlers; validates every renderer argument.
 - `electron/preload.ts`: `window.ledger`.
 - `electron/capture/poller.ts`: the 1 s loop below.
-- `electron/harness/{rules,memory,harness}.ts`.
-- `electron/ai/runtime.ts` (load, status), `electron/ai/judge.ts` (S1 + S2).
-- `electron/eval/run.ts`.
+- `electron/harness/rules.ts`, `memory.ts` (the memory key, shared with `review.tap`), `harness.ts` (`labelWindow`: rules → memory → model, no Electron imports), `queue.ts` (the single-flight queue: reads the visit, writes the verdict, emits).
+- `electron/ai/judge.ts` (model load, warm pair, S1 + S2; no Electron imports), `electron/ai/runtime.ts` (status, model path).
+- `electron/eval/run.ts`: a second entry of the main Vite build (`dist-electron/eval.js`), so it imports only Electron-free modules.
 - `src/`: the React renderer, one bundle; `#/<route>` picks the screen.
 - `native-host/host.ts`, built by `vite.host.config.ts` (`npm run build:host`) to `out/native-host/host.js`.
 - `extension/{manifest.json,background.js,popup.html,popup.js}`.
@@ -151,7 +151,7 @@ Layout of the `electron-typescript-react` template (Vite + `vite-plugin-electron
 - `eval/fixtures.json`.
 - `models/`, gitignored.
 
-Scripts: `npm run dev` (Vite dev server + Electron), `npm start` (build, then run the built app), `npm run build` (installer via electron-builder), `npm run typecheck`, `npm run lint`.
+Scripts: `npm run dev` (Vite dev server + Electron), `npm start` (build, then run the built app), `npm run build` (installer via electron-builder), `npm run eval [fixtures.json]` (build, then `scripts/eval.mjs` runs `dist-electron/eval.js` under the Electron binary with `ELECTRON_RUN_AS_NODE=1`), `npm test` (`node --test`, rules and memory key), `npm run typecheck`, `npm run lint`.
 
 ### IPC contract
 
@@ -184,7 +184,7 @@ Main thread, `setInterval` 1000 ms.
    - If idle ≥ 120 s, or the screen is locked (`getSystemIdleState(120) === 'locked'`, or a `lock-screen` event on Windows/macOS), close the open attention visit at `now − idle`, then open a `kind='away'` visit. It closes on the first tick with idle < 120 s.
 2. Otherwise call x-win `activeWindow()`. Key = `info.execName` + `title`.
    - If the key equals the open visit's key, update `last_seen_at`.
-   - On change, close the old visit and open a new one with `app_name = info.name`, `window_title` truncated to 512 chars, and `url`. URL resolution:
+   - On change, close the old visit and open a new one with `app_name = info.name`, `exec_name = info.execName`, `window_title` truncated to 512 chars, and `url`. URL resolution:
      - Read x-win's url getter on key change, and again on each later tick while it is still empty and the exec is in the browser set below; write it to the open visit when it arrives. Spike O1 (Windows): Brave's first read right after a switch returned `""` and a later read returned the URL; Edge returned `""` on every read (see edge cases). A URL read costs 30–470 ms, so it never runs on a tick where the URL is already known.
      - If that is empty and the exec is in `{chrome, msedge, brave, chromium, google-chrome}`, take `browser_tab.url` when the window title starts with `browser_tab.title` and `browser_tab.updated_at` is within 5 s.
    - Enqueue the closed visit for Harness.
@@ -199,10 +199,10 @@ Main thread, `setInterval` 1000 ms.
 
 Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](adr/ADR-002-harness-order.md); model stage per [ADR-005](adr/ADR-005-system-one-plus-slm.md).
 
-1. **Rules.** Normalize targets to lowercase. A target containing `.` is a site: it matches if the URL hostname equals it or ends with `.`+target, or, when the URL is null, if the target's first label (`youtube` from `youtube.com`) appears as a whole word in the lowercased title. Any other target is an app: it matches if it equals `app_name` or `execName` lowercased, without `.exe`/`.app`. A site match beats an app match. Source `rule`, label from the role (`work` → serves, `distraction` → drifts).
-2. **Memory.** `match_key` = URL hostname if a URL exists. Otherwise it is `execName`, unless the exec is a known browser, in which case it is null and memory is skipped. Apply only when `tap_count ≥ 2` (BR-004). Source `memory`.
+1. **Rules.** Normalize targets to lowercase. A target containing `.` is a site: it matches if the URL hostname equals it or ends with `.`+target, or, when the URL is null, if the target's first label (`youtube` from `youtube.com`) appears as a whole word in the lowercased title. Any other target is an app: it matches if it equals `exec_name` lowercased without `.exe`/`.app`, or appears as a whole word in the lowercased `app_name`. x-win names Word `WINWORD` / "Microsoft Word", so plain equality would miss the name a person types. A site match beats an app match. Source `rule`, label from the role (`work` → serves, `distraction` → drifts).
+2. **Memory.** `match_key` = URL hostname if a URL exists. Otherwise it is the lowercased `exec_name` (`app_name` on rows without one), unless the window is a known browser, in which case it is null and memory is skipped. Apply only when `tap_count ≥ 2` (BR-004). Source `memory`. `review.tap` computes the same key.
 3. **Model.**
-   - If the intention is empty, or `runtime.status !== 'ready'`, store `unclear` with source `model` and `model_id` null (BR-003).
+   - While the runtime is `loading`, the queue waits (the visit shows "Judging…"). If the intention is empty, or the runtime ended `missing-file` or `failed:…`, store `unclear` with source `model` and `model_id` null (BR-003).
    - S1 and S2 share one set of label definitions:
      ```ts
      const DEFINITIONS = {
@@ -237,7 +237,7 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 
 ### τ (eval)
 
-- `npm run eval` builds and runs `electron/eval/run.ts` under the Electron binary with `ELECTRON_RUN_AS_NODE=1`.
+- `npm run eval [fixtures.json]` builds and runs `electron/eval/run.ts` under the Electron binary with `ELECTRON_RUN_AS_NODE=1`. The argument defaults to `eval/fixtures.json`.
 - It loads `eval/fixtures.json` into `eval_case`, runs each case through the full Harness against a throwaway in-memory session (it never touches user visits), and writes `eval_run` rows.
 - It prints precision and asserted count per source. τ = the smallest value in {0.05, 0.10, …, 0.95} at which model-source precision over cases with `confidence ≥ τ` and label ≠ `unclear` meets the precision bar in [`idea.md` §9](../idea.md) **and** at least 10 cases are asserted. It upserts `setting('tau', τ)`; if no τ qualifies, it deletes the row. The grid starts at 0.05 because S1 `confidence` is `tanh(margin / 2)` of the top two choices: on the 43-case dev set the correct asserted labels sit at 0.05–0.6, and a grid starting at 0.50 would assert almost nothing.
 - `eval/fixtures.json` (O4) is held out. Prompt wording is tuned on a separate dev set (`spike/dev-cases.json` on `spike/smoke`), never on the fixtures.

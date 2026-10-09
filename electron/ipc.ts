@@ -4,7 +4,10 @@ import {setTimeout as sleep} from "node:timers/promises";
 import {BrowserWindow, ipcMain, systemPreferences} from "electron";
 import {closeDb, getDb} from "./store/db.ts";
 import {dbPath, widgetFilePath} from "./paths.ts";
-import {MODEL_ID, runtimeStatus} from "./ai/runtime.ts";
+import {runtimeStatus} from "./ai/runtime.ts";
+import {MODEL_ID} from "./ai/judge.ts";
+import {startCapture, stopCapture} from "./capture/poller.ts";
+import {memoryKey} from "./harness/memory.ts";
 import {openMain, ROUTE_PATTERN, toggleMiniWindow} from "./windows.ts";
 import type {
     DeclaredTarget, HistoryRow, Label, LedgerChannel, LedgerEvents, Outcome, Permissions, PermissionState, Privacy, Review,
@@ -14,8 +17,6 @@ import type {
 type Row = Record<string, unknown>;
 const str = (v: unknown) => (v == null ? null : String(v));
 const num = (v: unknown) => (v == null ? null : Number(v));
-
-const BROWSER_APPS = /chrome|edge|brave|chromium|firefox|opera|vivaldi|safari/i;
 
 /** Pushes an event to every window (main, popover, mini). */
 export function emit<E extends keyof LedgerEvents>(event: E, payload: LedgerEvents[E]) {
@@ -109,7 +110,7 @@ function getReview(sessionId: string): Review {
 /** A tap is the user's verdict for that visit, and one vote toward memory (applied by Harness only at tap_count >= 2, BR-004). */
 function tap(visitId: string, label: "serves" | "drifts") {
     const db = getDb();
-    const visit = db.prepare("SELECT app_name, url FROM visit WHERE id = ?").get(visitId);
+    const visit = db.prepare("SELECT app_name, exec_name, window_title, url FROM visit WHERE id = ?").get(visitId);
     if (visit == null)
         throw new Error(`No visit ${visitId}`);
 
@@ -121,12 +122,12 @@ function tap(visitId: string, label: "serves" | "drifts") {
                 model_id = NULL, model_stage = NULL, latency_ms = NULL, confidence = NULL
         `).run(randomUUID(), visitId, label);
 
-        // match_key: the URL host, else the app, except a browser without a URL (its app name says nothing about the page).
-        const url = str(visit.url);
-        const appName = String(visit.app_name);
-        const matchKey = url != null
-            ? new URL(url).hostname.toLowerCase()
-            : BROWSER_APPS.test(appName) ? null : appName.toLowerCase();
+        const matchKey = memoryKey({
+            appName: String(visit.app_name),
+            execName: str(visit.exec_name),
+            title: str(visit.window_title),
+            url: str(visit.url)
+        });
         if (matchKey != null)
             db.prepare(`
                 INSERT INTO memory (id, match_key, label, tap_count) VALUES (?, ?, ?, 1)
@@ -143,6 +144,7 @@ function tap(visitId: string, label: "serves" | "drifts") {
 }
 
 async function deleteFile() {
+    stopCapture();
     closeDb();
     const files = [dbPath(), `${dbPath()}-wal`, `${dbPath()}-shm`, widgetFilePath()];
     for (let attempt = 1; ; attempt++) {
@@ -210,6 +212,7 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
             throw err;
         }
         emit("session:changed", {sessionId: id});
+        startCapture(id);
         return readSession(db.prepare("SELECT * FROM session WHERE id = ?").get(id)!);
     },
     "session.end"() {
@@ -219,7 +222,7 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
             throw new Error("No session is running");
 
         const now = new Date().toISOString();
-        db.prepare("UPDATE visit SET ended_at = last_seen_at WHERE session_id = ? AND ended_at IS NULL").run(running.id);
+        stopCapture();
         db.prepare("UPDATE session SET ended_at = ? WHERE id = ?").run(now, running.id);
         emit("session:changed", {sessionId: null});
         // The review follows End wherever End was pressed (popover, mini window, main window).

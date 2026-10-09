@@ -12,6 +12,8 @@ Needs Node 24 and npm 11. The first `npm install` downloads the pinned model (1.
 npm install
 npm run dev        # Vite dev server + Electron, hot reload. LEDGER_DEBUG_PORT=9333 npm run dev exposes DevTools.
 npm start          # build, then run the built app (what a judge runs)
+npm run eval       # score eval/fixtures.json through the harness and set tau (needs the model)
+npm test           # rules and memory-key checks (node:test)
 npm run typecheck
 npm run lint
 ```

@@ -63,7 +63,8 @@ Class `on-device private` means the field can name a person's document or accoun
 |-------|------|-------|---------|-------|-------------|
 | `id` | text | no | generated | internal | Primary key. |
 | `session_id` | text | no | — | internal | Parent session. |
-| `app_name` | text | no | — | on-device private | Frontmost app. |
+| `app_name` | text | no | — | on-device private | Frontmost app (x-win `info.name`, e.g. "Microsoft Word"); `Away` on an away visit. |
+| `exec_name` | text | yes | null | on-device private | Process name (x-win `info.execName`, e.g. `WINWORD`). Rules and memory match on it. Null on away visits and on rows from before migration `002`. |
 | `window_title` | text | yes | null | on-device private | Null when the OS did not provide one. Kept so a past review can render (open question in [`prd.md` §7](prd.md)). |
 | `url` | text | yes | null | on-device private | Null when the browser did not provide one. |
 | `last_seen_at` | text | no | — | internal | ISO-8601 timestamp of latest tick seen frontmost. |
@@ -97,7 +98,7 @@ Class `on-device private` means the field can name a person's document or accoun
 | Field | Type | Null? | Default | Class | Description |
 |-------|------|-------|---------|-------|-------------|
 | `id` | text | no | generated | internal | Primary key. |
-| `match_key` | text | no | — | on-device private | App name or site. Not a window title, so a document name does not become the key. |
+| `match_key` | text | no | — | on-device private | URL host, else the lowercased process name (`exec_name`, or `app_name` when that is null). Not a window title, so a document name does not become the key. |
 | `label` | text | no | — | internal | `serves` or `drifts`. |
 | `tap_count` | integer | no | `0` | internal | How many taps support this key. BR-004 uses it. The row may exist at 1 and still must not be applied. |
 
