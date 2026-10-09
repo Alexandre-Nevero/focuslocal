@@ -1,4 +1,4 @@
-# ADR-006 — Awareness over accountability
+# ADR-008 — Awareness over accountability
 
 - **Date:** 2026-10-09
 - **Status:** Accepted
@@ -32,7 +32,7 @@ The chain needs the information, including the answer, and it needs more than on
 ### Overrides
 
 - **Prior ADRs:** softens ADR-001's description of the review. ADR-001 still holds on silence during the session. It does not hold where it made "did you finish" the purpose of the review.
-- **Doc or plan truth:** idea.md §1, §6, §7 F-004 and F-006, and §8. prd.md stories US-004 and US-007. Numbered 006 because ADR-003 to ADR-005 were taken by the build spec the same day.
+- **Doc or plan truth:** idea.md §1, §6, §7 F-004 and F-006, and §8. prd.md stories US-004 and US-007. Numbered 008 because ADR-006 is the Vite build and ADR-007 is Windows first.
 - **Out of scope:** does not bring back a live drift signal, a coach, or blocking.
 
 ### Consequences

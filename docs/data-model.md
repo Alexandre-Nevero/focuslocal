@@ -191,7 +191,7 @@ No field is stored for a future dashboard. Model-call count is a count of `verdi
 
 `outlives_demo` is true. Engine is `node:sqlite`.
 
-- **Migration mechanism:** ordered SQL files (`src/main/store/migrations/*.sql`) applied by Store at launch in filename order, recorded in `schema_migration(name, applied_at)`.
+- **Migration mechanism:** ordered SQL files (`electron/store/migrations/*.sql`) applied by Store at launch in filename order, recorded in `schema_migration(name, applied_at)`.
 - **How a change rolls out:** add a column or table, use it, then remove the old shape in a later build. Do not rename a column in one step.
 - **Backfill strategy:** one local file, so a backfill is a single pass at launch. There is no fleet to watch.
 - **Rollback:** keep a copy of the file next to the new build until the migration has been opened successfully. After a destructive step, rollback is the copy, not the new file.

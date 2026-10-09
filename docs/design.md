@@ -19,7 +19,7 @@ There is no HTTP server. A route here is an in-app address, not a URL on the net
 - System colors over a custom palette, because no visual source file exists and a invented brand color would be a decision nobody made.
 - Words for counts over a percentage, because [`prd.md` BR-006](prd.md) forbids a rate.
 - An unclear row over a guessed label, because the review is where the person settles a window the harness would not assert.
-- The record over a finish headline, because [ADR-006](adr/ADR-006-awareness-over-accountability.md) says the review trains noticing and the answer is secondary.
+- The record over a finish headline, because [ADR-008](adr/ADR-008-awareness-over-accountability.md) says the review trains noticing and the answer is secondary.
 
 ## 2. Routes & Actions
 
@@ -107,7 +107,7 @@ Last synced: 2026-10-09, against an empty tree.
 
 **Tool/library defaults this project deliberately overrides:**
 
-- React through electron-vite (scaffold: `npm create node-llama-cpp@latest -- --template electron-typescript-react`). Default styling and components inherit OS theme via CSS variables; no external component library or unrequested animation presets.
+- React, built with Vite and `vite-plugin-electron` from the node-llama-cpp `electron-typescript-react` template ([ADR-006](adr/ADR-006-template-vite-build.md)). The template's demo UI, Inter font, and markdown/highlight libraries were removed. Styling is plain CSS with OS-following tokens; no component library, no web fonts, no unrequested animation presets.
 
 ## 9. Key Screen Specs
 

@@ -13,7 +13,7 @@ owns: features (F-###) and their MoSCoW priority · personas · user stories (US
 
 ## 1. Product Purpose & Value Proposition
 
-Ledger is for a self-employed person who works and gets distracted on the same computer. They say what they meant to finish. The app records the windows they actually used. The review puts those two side by side so the gap can be noticed. The question of whether they finished is asked and stored, and it is not the goal. Awareness is. Accountability loses where they conflict ([ADR-006](adr/ADR-006-awareness-over-accountability.md)). An on-device model judges only the windows they did not already classify. The title stays on the machine.
+Ledger is for a self-employed person who works and gets distracted on the same computer. They say what they meant to finish. The app records the windows they actually used. The review puts those two side by side so the gap can be noticed. The question of whether they finished is asked and stored, and it is not the goal. Awareness is. Accountability loses where they conflict ([ADR-008](adr/ADR-008-awareness-over-accountability.md)). An on-device model judges only the windows they did not already classify. The title stays on the machine.
 
 The one-sentence form is [`idea.md` §6](../idea.md). This paragraph is the only longer form.
 
@@ -239,7 +239,7 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 
 **Open questions**
 
-- Which app shell and which model runtime. Resolved: Electron 44 + TypeScript + React through electron-vite, with node-llama-cpp running Qwen3.5-2B locally. See [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md).
+- Which app shell and which model runtime. Resolved: Electron 44 + TypeScript + React (Vite + `vite-plugin-electron`), with node-llama-cpp running Qwen3.5-2B locally. See [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md) and [ADR-006](adr/ADR-006-template-vite-build.md).
 - How the active browser URL is read, and on which browsers. Resolved: Windows (x-win UIA), macOS (x-win AppleScript), Linux (Chromium MV3 native messaging extension relay). See [ADR-004](adr/ADR-004-three-os-and-three-frontends.md).
 - The smallest tap count above one before memory applies. `[assumption]` more than one, as BR-004 states, with no higher floor. A higher floor waits on F-008, not on a guessed constant.
 - Whether old window titles are kept until the user deletes the file. `[assumption]` kept, because US-004 on a past session needs them. Revisit if the file grows past what the demo machine tolerates. No size number exists yet.
@@ -264,4 +264,4 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 - [`design.md`](design.md)
 - [`system-design.md`](system-design.md)
 - [`data-model.md`](data-model.md)
-- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-006](adr/ADR-006-awareness-over-accountability.md), [ADR-007](adr/ADR-007-windows-first.md)
+- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-006](adr/ADR-006-template-vite-build.md), [ADR-007](adr/ADR-007-windows-first.md), [ADR-008](adr/ADR-008-awareness-over-accountability.md)

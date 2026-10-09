@@ -58,7 +58,7 @@ There is no ledger, so update the owning doc in the same change. Do not add a §
 
 ## Stack currency
 
-Electron 44, node-llama-cpp 3.22, Qwen3.5-2B Q4_K_M, electron-vite, React, @miniben90/x-win. The pins live in [`docs/system-design.md`](docs/system-design.md) §4. Verify a library against its current docs before writing a call. Do not write an API from memory.
+Electron 44, node-llama-cpp 3.22, Qwen3.5-2B Q4_K_M, Vite with vite-plugin-electron, React, @miniben90/x-win. The pins live in [`docs/system-design.md`](docs/system-design.md) §4. Verify a library against its current docs before writing a call. Do not write an API from memory.
 
 ## Commands
 

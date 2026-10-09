@@ -13,7 +13,7 @@ The work and the distraction happen on the same computer, so nothing the person 
 
 Three falsifiers, carried from the prior MEANT brief (ADR-0055 in that project, 2026-09-15). They are not re-tested here. **P-F1.** The person can already answer "did that block deliver?" without help, so this is motivation rather than missing information. **P-F2.** Drift plus time away is under about 15 percent of the block, so the loss is not where this states it. **P-F3.** They answer the question and the next day does not change, so the review is a diary.
 
-Awareness is the goal. Information is the mechanism. Carried from MEANT ADR-0052 and applied in [ADR-006](docs/adr/ADR-006-awareness-over-accountability.md). The chain is information, then pattern, then noticing, and the middle step lags. The review is not an account book. It is a training loop for noticing. Self-control and accountability are real and secondary. Where they conflict with awareness, awareness wins. Blocking is the named exception. A blocked site records the reach and never the duration, so every blocked site is one the product stops learning about. That is why F-009 stays out.
+Awareness is the goal. Information is the mechanism. Carried from MEANT ADR-0052 and applied in [ADR-008](docs/adr/ADR-008-awareness-over-accountability.md). The chain is information, then pattern, then noticing, and the middle step lags. The review is not an account book. It is a training loop for noticing. Self-control and accountability are real and secondary. Where they conflict with awareness, awareness wins. Blocking is the named exception. A blocked site records the reach and never the duration, so every blocked site is one the product stops learning about. That is why F-009 stays out.
 
 ## 2. Target segment
 
