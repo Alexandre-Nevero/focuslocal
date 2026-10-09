@@ -153,6 +153,9 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 | Review | Read the record, resolve unclear rows, answer the question (US-004, US-005, US-010) | Session end | loading the record / ready / unanswered on dismiss |
 | Ledger | Past sessions as words (US-007) | Idle popover | empty / has rows |
 | Privacy | Calls, model id, drop memory, delete file (US-008) | Idle popover, and the review | ready / confirm drop / confirm delete |
+| Mini window | Always-on-top clock and intention display (US-001, BR-001) | Toggle from tray or shortcut | running / no session |
+| Desktop widget | Display-only desktop layer widget on macOS (US-001, BR-001) | Automatic while session runs | running / no session |
+| Extension popup | Chromium extension popup showing status (US-001, BR-001) | Click extension icon in browser | running / no session |
 
 ### 5.2 App Flow
 
@@ -171,6 +174,7 @@ flowchart TD
   Idle --> Declare[Declare]
   Declare --> Running[Running]
   Running --> Review[Review]
+  Running -.-> Mini[Mini window / Desktop widget / Extension popup]
   Review --> Unclear{Unclear visits}
   Unclear -->|yes| Tap[One tap per row]
   Tap --> Answer[Outcome answer]
@@ -225,13 +229,13 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 **Dependencies**
 
 - An OS permission that yields the frontmost app and window title. Without it, US-002's gap state is the product.
-- A local model runtime. Not chosen. Bennet owns the choice.
+- A local model runtime: node-llama-cpp with Qwen3.5-2B, resolved in [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md).
 - No hosted database and no account service. F-012 is Won't.
 
 **Open questions**
 
-- Which app shell and which model runtime. Resolved by Bennet before the capture spike. `[assumption]` none. The docs do not pretend one was picked.
-- How the active browser URL is read, and on which browsers. Resolved by a spike. `[assumption]` the URL may be missing, and the visit still stores app and title (US-002's edge).
+- Which app shell and which model runtime. Resolved: Electron 44 + TypeScript + React through electron-vite, with node-llama-cpp running Qwen3.5-2B locally. See [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md).
+- How the active browser URL is read, and on which browsers. Resolved: Windows (x-win UIA), macOS (x-win AppleScript), Linux (Chromium MV3 native messaging extension relay). See [ADR-004](adr/ADR-004-three-os-and-three-frontends.md).
 - The smallest tap count above one before memory applies. `[assumption]` more than one, as BR-004 states, with no higher floor. A higher floor waits on F-008, not on a guessed constant.
 - Whether old window titles are kept until the user deletes the file. `[assumption]` kept, because US-004 on a past session needs them. Revisit if the file grows past what the demo machine tolerates. No size number exists yet.
 - The 0.80 bar is carried from the prior project. Whether this model can meet it is what F-008 measures. Until a run exists, the review treats model labels as unclear when they would be asserted below that bar.
@@ -255,4 +259,4 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 - [`design.md`](design.md)
 - [`system-design.md`](system-design.md)
 - [`data-model.md`](data-model.md)
-- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md)
+- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md)
