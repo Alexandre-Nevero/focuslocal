@@ -286,6 +286,7 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 | Linux without URL | URL only from the extension; otherwise empty, rules fall back to title words | US-002 |
 | Firefox URL on macOS | x-win cannot read it; URL empty | US-002 |
 | Elevated windows on Windows | Title readable, URL fails; visit kept without URL | US-002 |
+| Edge on Windows | x-win's URL read returned `""` on every read in spike O1 (Brave worked). URL comes from the extension relay (`browser_tab`), otherwise empty | US-002 |
 | UWP `ApplicationFrameHost` | Recorded under the name x-win reports; title carries the app | US-002 |
 | Ledger's own windows | Never open a visit; the previous visit continues | US-002 |
 | Lock, sleep, idle (Linux: no lock events, idle state only) | Idle ≥ 120 s or locked → `away` visit; tick gap > 5 s → unrecorded | US-002 |
