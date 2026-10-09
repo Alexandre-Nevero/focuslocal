@@ -7,7 +7,7 @@ const call = (channel: string) => (...args: unknown[]) => ipcRenderer.invoke(cha
 const ledger: LedgerApi = {
     session: {start: call("session.start"), end: call("session.end"), current: call("session.current")},
     review: {get: call("review.get"), tap: call("review.tap"), answer: call("review.answer")},
-    ledger: {list: call("ledger.list")},
+    history: {list: call("history.list")},
     privacy: {get: call("privacy.get"), dropMemory: call("privacy.dropMemory"), deleteFile: call("privacy.deleteFile")},
     permissions: {get: call("permissions.get")},
     widgets: {toggleMini: call("widgets.toggleMini")},

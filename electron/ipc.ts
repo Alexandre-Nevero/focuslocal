@@ -7,7 +7,7 @@ import {dbPath, widgetFilePath} from "./paths.ts";
 import {MODEL_ID, runtimeStatus} from "./ai/runtime.ts";
 import {openMain, ROUTE_PATTERN, toggleMiniWindow} from "./windows.ts";
 import type {
-    DeclaredTarget, Label, LedgerChannel, LedgerEvents, LedgerRow, Outcome, Permissions, PermissionState, Privacy, Review,
+    DeclaredTarget, HistoryRow, Label, LedgerChannel, LedgerEvents, Outcome, Permissions, PermissionState, Privacy, Review,
     ReviewVisit, Route, Session, Source, Verdict
 } from "../src/shared/types.ts";
 
@@ -236,7 +236,7 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
         if (result.changes === 0)
             throw new Error("The session is still running or does not exist");
     },
-    "ledger.list"(): LedgerRow[] {
+    "history.list"(): HistoryRow[] {
         return getDb()
             .prepare("SELECT id, intention, started_at, ended_at, outcome FROM session ORDER BY started_at DESC")
             .all()

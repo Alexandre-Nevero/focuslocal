@@ -23,7 +23,7 @@ export function App() {
         case "permissions": return <h1>Permissions</h1>;
         case "running": return <h1>Running</h1>;
         case "review": return <h1>Review {param}</h1>;
-        case "ledger": return <h1>Ledger</h1>;
+        case "history": return <h1>History</h1>;
         case "privacy": return <h1>Privacy</h1>;
         case "mini": return <h1>Mini</h1>;
         default: return <h1>Unknown route: {route}</h1>;

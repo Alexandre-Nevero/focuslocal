@@ -5,7 +5,7 @@ import type {Route} from "../src/shared/types.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export const ROUTE_PATTERN = /^(idle|declare|permissions|running|review\/[\w-]+|ledger|privacy|mini)$/;
+export const ROUTE_PATTERN = /^(idle|declare|permissions|running|review\/[\w-]+|history|privacy|mini)$/;
 
 let mainWindow: BrowserWindow | null = null;
 let popover: BrowserWindow | null = null;
