@@ -23,10 +23,17 @@ const LABELS = ['serves', 'drifts', 'unclear']
 const CHROMIUM = new Set(['chrome', 'msedge', 'brave', 'chromium', 'google-chrome'])
 // Throwaway window used to warm S1 and S2 before the probes are timed.
 const WARM_PROBE = { app: 'File Explorer', title: 'Downloads', url: null }
+// Label definitions shared by S1 criteria and the S2 system prompt (tuned on dev-cases.json with tune.mjs).
+const DEFINITIONS = {
+  serves: 'Work on this task: the file, tool, reference page, or message for it',
+  drifts: 'Not this task: entertainment, social media, games, shopping, news, or other work',
+  unclear: 'Generic window that could be either (new tab, file browser, chat list, calculator)',
+}
 const S2_SYSTEM =
-  'You label one desktop window against the stated intention of a work session. ' +
-  'Answer with label serves, drifts, or unclear, and a reason under 140 characters. ' +
-  'Never repeat the window title or the URL in the reason.'
+  'You check whether one desktop window is part of the work a person said they are doing. ' +
+  `Labels: serves = ${DEFINITIONS.serves}. drifts = ${DEFINITIONS.drifts}. unclear = ${DEFINITIONS.unclear}. ` +
+  'Judge only whether the window is used for that work, not whether the work is finished. ' +
+  'Give a reason under 140 characters. Never repeat the window title or the URL in the reason.'
 
 const log = (o) => console.log(JSON.stringify(o))
 
@@ -110,9 +117,10 @@ async function initModel(gpu) {
     const loadMs = Math.round(performance.now() - s)
     const decision = await model.createDecisionContext({ contextSize: { max: 1024 } })
     const chat = await model.createContext({ contextSize: 2048 })
+    // reason before label: S2 writes its judgment, then commits to a label.
     const grammar = await llama.createGrammarForJsonSchema({
       type: 'object',
-      properties: { label: { enum: LABELS }, reason: { type: 'string', maxLength: 140 } },
+      properties: { reason: { type: 'string', maxLength: 140 }, label: { enum: LABELS } },
     })
     // The auto-resolved Qwen 3.5 wrapper force-opens a <think> segment, which swallows the grammar's opening "{".
     // "discourage" prefills an empty, closed thought so the response is the grammar JSON alone.
@@ -145,32 +153,20 @@ async function initModel(gpu) {
   }
 }
 
+// The intention goes in the question, the window is the document.
+const question = () => `The person said they are working on: "${INTENTION}". Is this window part of that work?`
 function docOf(p) {
-  return `Intention: ${INTENTION}\nApp: ${p.app}\nTitle: ${p.title.slice(0, 200)}\nURL: ${p.url ?? 'none'}`
+  return `App: ${p.app}\nTitle: ${p.title.slice(0, 200)}\nURL: ${p.url ?? 'none'}`
 }
 
 async function s1(decision, doc, signal) {
-  const { label } = await decision.decide(
-    doc,
-    {
-      label: {
-        type: 'choice',
-        instruction: 'Does this window serve the stated intention?',
-        criteria: {
-          serves: 'The window is plausibly used to do the intention',
-          drifts: 'The window is unrelated to the intention',
-          unclear: 'Cannot tell from the app, title, and URL',
-        },
-      },
-    },
-    { signal },
-  )
+  const { label } = await decision.decide(doc, { label: { type: 'choice', instruction: question(), criteria: DEFINITIONS } }, { signal })
   return label
 }
 
 async function s2(session, grammar, doc, signal) {
   session.resetChatHistory()
-  return grammar.parse(await session.prompt(doc, { grammar, maxTokens: 60, signal }))
+  return grammar.parse(await session.prompt(`${question()}\n\n${doc}`, { grammar, maxTokens: 80, signal }))
 }
 
 async function judge({ decision, session, grammar }) {
