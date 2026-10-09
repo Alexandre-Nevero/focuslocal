@@ -10,9 +10,29 @@ import {Mini} from "./screens/Mini.tsx";
 import {Permissions} from "./screens/Permissions.tsx";
 import {Privacy} from "./screens/Privacy.tsx";
 import {Review} from "./screens/Review.tsx";
+import {BlockNotice} from "./screens/BlockNotice.tsx";
+import {Companion} from "./screens/Companion.tsx";
 import {Running} from "./screens/Running.tsx";
+import {Sites} from "./screens/Sites.tsx";
 
 // Routes and their screens: docs/design.md §4.1. Data: window.ledger (src/shared/types.ts LedgerApi) and nothing else.
+
+function SitesScreen() {
+    const [lists, reload] = useLoad(() => ledger.sites.list(), []);
+    if (lists.state !== "ready")
+        return <main className="page"><p className="status">Reading saved lists…</p></main>;
+    const {work, block} = lists.value;
+    return (
+        <main className="page">
+            <Sites
+                work={work}
+                block={block}
+                onAdd={(role, target) => void ledger.sites.save(target, role).then(() => reload())}
+                onRemove={(target) => void ledger.sites.remove(target).then(() => reload())}
+            />
+        </main>
+    );
+}
 
 function useHashRoute() {
     const [route, setRoute] = useState(() => window.location.hash.replace(/^#\/?/, ""));
@@ -51,13 +71,19 @@ export function App() {
     if (name === "mini")
         return <Mini session={session} />;
 
+    if (name === "companion")
+        return <Companion />;
+
+    if (name === "block") {
+        const intention = session.state === "ready" && session.value != null ? session.value.intention : "";
+        return <BlockNotice intention={intention === "" ? "No intention written" : intention} />;
+    }
+
     // Popover screens sit bare in the tray popover and inside the shell, as one centered card, in the main window.
     const frame = (node: ReactNode) => (wide
         ? <Page><div className="card form-card">{node}</div></Page>
         : <main className="popover">{node}</main>);
     const home = wide ? <Dashboard /> : <Idle />;
-
-    // A running session owns the popover: idle, declare, and running all show it until it ends.
     const running = session.state === "ready" ? session.value : null;
     const waiting = session.state === "loading";
     const runningView = running == null ? null : frame(<Running session={running} />);
@@ -84,6 +110,7 @@ export function App() {
         case "review": return param == null ? <History /> : <Review sessionId={param} />;
         case "history": return <History />;
         case "privacy": return <Privacy />;
+        case "sites": return <Page><SitesScreen /></Page>;
         default: return <Page><ErrorNote title={`There is no screen called “${route}”.`} /></Page>;
     }
 }

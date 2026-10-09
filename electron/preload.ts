@@ -12,6 +12,11 @@ const ledger: LedgerApi = {
     permissions: {get: call("permissions.get")},
     widgets: {toggleMini: call("widgets.toggleMini")},
     windows: {open: call("windows.open")},
+    sites: {list: call("sites.list"), save: call("sites.save"), remove: call("sites.remove")},
+    settings: {get: call("settings.get"), set: call("settings.set")},
+    companion: {notWork: call("companion.notWork"), nudge: call("companion.nudge"), resize: call("companion.resize")},
+    coach: {ask: call("coach.ask")},
+    presets: {fill: call("presets.fill")},
     on(event, listener) {
         const channel = `ledger:${event}`;
         const handler = (_event: Electron.IpcRendererEvent, payload: LedgerEvents[typeof event]) => listener(payload);

@@ -90,17 +90,29 @@ export async function loadJudge(modelPath: string): Promise<Judge> {
 const question = (intention: string) => `The person said they are working on: "${intention}". Is this window part of that work?`;
 const windowDoc = (w: JudgedWindow) => `App: ${w.appName}\nTitle: ${(w.title ?? "").slice(0, 200)}\nURL: ${w.url ?? "none"}`;
 
-/** S1 decide + S2 reason within one 10 s budget. Never throws: a failure is stored as unclear (BR-003). */
+type ChoiceProbabilities = {serves: number, drifts: number, unclear: number};
+
+/** When the reading is unclear or failed, store the stronger of serves and drifts; with no scores, store drifts (ADR-020). */
+export function storedLabel(raw: Label, probabilities: ChoiceProbabilities | null): "serves" | "drifts" {
+    if (raw === "serves" || raw === "drifts")
+        return raw;
+    if (probabilities != null)
+        return probabilities.serves >= probabilities.drifts ? "serves" : "drifts";
+    return "drifts";
+}
+
+/** S1 decide + S2 reason within one 10 s budget. Never throws: a failure stores drifts when S1 did not run (BR-003, ADR-020). */
 export async function judgeWindow(judge: Judge, intention: string, w: JudgedWindow): Promise<ModelResult> {
     const signal = AbortSignal.timeout(BUDGET_MS);
     const doc = windowDoc(w);
     const started = performance.now();
-    let s1: {choice: Label, confidence: number} | null = null;
+    let s1: {choice: Label, confidence: number, probabilities: ChoiceProbabilities | null} | null = null;
     try {
         const {label} = await judge.decision.decide(doc, {
             label: {type: "choice", instruction: question(intention), criteria: DEFINITIONS}
         }, {signal});
-        s1 = {choice: label.choice, confidence: label.confidence};
+        const probabilities = label.type === "choice" ? label.probabilities : null;
+        s1 = {choice: label.choice, confidence: label.confidence, probabilities};
 
         judge.session.resetChatHistory();
         const s2 = judge.grammar.parse(await judge.session.prompt(`${question(intention)}\n\n${doc}`, {
@@ -109,17 +121,17 @@ export async function judgeWindow(judge: Judge, intention: string, w: JudgedWind
 
         const reason = s2.reason.trim().slice(0, 140);
         const leaks = [w.title, w.url].some((text) => text != null && text !== "" && reason.toLowerCase().includes(text.toLowerCase()));
+        const raw = s1.choice === s2.label ? s1.choice : "unclear";
         return {
-            label: s1.choice === s2.label ? s1.choice : "unclear",
+            label: storedLabel(raw, s1.probabilities),
             confidence: s1.confidence,
             reason: leaks || reason === "" ? null : reason,
             modelStage: "reason",
             latencyMs: Math.round(performance.now() - started)
         };
     } catch {
-        // Timeout or a parse failure: unclear. If S1 answered, keep its confidence and say S2 did not run.
         return {
-            label: "unclear",
+            label: storedLabel("unclear", s1?.probabilities ?? null),
             confidence: s1?.confidence ?? null,
             reason: null,
             modelStage: s1 == null ? null : "decide",

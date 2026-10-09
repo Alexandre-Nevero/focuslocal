@@ -3,8 +3,11 @@ import {powerMonitor} from "electron";
 import {activeWindow, type WindowInfo} from "@miniben90/x-win";
 import {getDb} from "../store/db.ts";
 import {emit} from "../ipc.ts";
+import {decision, recordHit} from "../blocker.ts";
 import {enqueueVisit} from "../harness/queue.ts";
-import {bare} from "../harness/rules.ts";
+import {bare, hostOf} from "../harness/rules.ts";
+import {listSaved} from "../saved-lists.ts";
+import {showBlock} from "../windows.ts";
 import type {CaptureState} from "../../src/shared/types.ts";
 
 // The 1 s capture loop, system-design §9 "Capture loop".
@@ -143,26 +146,63 @@ function tick() {
 
     const exec = bare(w.info.execName);
     const key = `${exec}\u0000${w.title}`;
-    if (open?.key === key) {
-        touch(now);
-        if (open.wantsUrl) {
-            const url = readUrl(w, exec);
-            if (url != null) {
-                getDb().prepare("UPDATE visit SET url = ? WHERE id = ?")
-                    .run(url, open.id);
-                open.wantsUrl = false;
-            }
-        }
-        return;
-    }
-
-    closeVisit(now);
-    open = openVisit(now, "attention", key, {
+    const frontFacts = {
         name: w.info.name || w.info.execName,
         exec: w.info.execName,
         title: w.title.slice(0, 512) || null,
         url: readUrl(w, exec)
-    });
+    };
+    if (open?.key === key) {
+        touch(now);
+        if (open.wantsUrl && frontFacts.url != null) {
+            getDb().prepare("UPDATE visit SET url = ? WHERE id = ?")
+                .run(frontFacts.url, open.id);
+            open.wantsUrl = false;
+        }
+        maybeBlock(frontFacts);
+        return;
+    }
+
+    closeVisit(now);
+    open = openVisit(now, "attention", key, frontFacts);
+    maybeBlock(frontFacts);
+}
+
+function savedBlockTargets(): string[] {
+    try {
+        return listSaved().filter((row) => row.role === "block").map((row) => row.target);
+    } catch {
+        return [];
+    }
+}
+
+function sessionLists(): {work: string[], block: string[], intention: string} | null {
+    if (sessionId == null)
+        return null;
+    const rows = getDb().prepare("SELECT target, role FROM declared_target WHERE session_id = ?")
+        .all(sessionId) as {target: string, role: string}[];
+    const session = getDb().prepare("SELECT intention FROM session WHERE id = ?").get(sessionId) as {intention: string} | undefined;
+    if (session == null)
+        return null;
+    const work = rows.filter((r) => r.role === "work").map((r) => r.target);
+    const block = [
+        ...rows.filter((r) => r.role === "distraction").map((r) => r.target),
+        ...savedBlockTargets()
+    ];
+    return {work, block, intention: String(session.intention)};
+}
+
+function maybeBlock(f: Facts) {
+    const lists = sessionLists();
+    if (lists == null)
+        return;
+    const host = hostOf(f.url);
+    const target = host ?? bare(f.exec ?? f.name);
+    const kind = host != null ? "site" as const : "app" as const;
+    if (decision({target, kind, work: lists.work, block: lists.block, intention: lists.intention}) !== "block")
+        return;
+    if (sessionId != null && recordHit(sessionId, target, kind))
+        showBlock();
 }
 
 export function startCapture(id: string) {

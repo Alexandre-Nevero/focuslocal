@@ -25,6 +25,7 @@ test("idle backdating never fills a sleep gap", async (t) => {
     t.mock.module("../store/db.ts", {exports: {getDb: () => db}});
     t.mock.module("../ipc.ts", {exports: {emit: () => {}}});
     t.mock.module("../harness/queue.ts", {exports: {enqueueVisit: () => {}}});
+    t.mock.module("../windows.ts", {exports: {showBlock: () => {}}});
     t.mock.method(Date, "now", () => now);
     t.mock.timers.enable({apis: ["setInterval"]});
     // Node's fake clearInterval rejects undefined; preserve the native no-op before capture's first start.

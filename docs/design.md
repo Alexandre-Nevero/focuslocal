@@ -197,7 +197,7 @@ The **current** renderer (`src/App.tsx`) contains route headings only. `electron
 | Privacy | Local model/source/file facts and delete actions | Existing `app://privacy` | Local, no account |
 | Mini | Intention and clock only | Existing `app://mini` | Local, no account |
 | Companion | The coach's character. Drag, hover, tap opens the popup (US-012) | **SPECIFIED, not built.** New window, not a route inside the main window. See [ADR-011](adr/ADR-011-coach-companion-and-system-one.md). | Local, no account |
-| Coach | One ended session, from computed figures (US-011). A suggestion needs a button. | **SPECIFIED, not built.** Opens from the companion when idle, and from the review. | Local, no account |
+| Coach | One ended session, from computed figures (US-011). A suggestion needs a button. | **SPECIFIED, not built.** Opens from the companion when idle, and from the review. See [ADR-017](adr/ADR-017-coach-and-companion.md). | Local, no account |
 | Declare popup | Intention, cycle, where it happens, what to block, Start (US-001, US-014, US-016) | Existing `app://declare`. The fields in [ADR-012](adr/ADR-012-meant-loop-on-device.md) are specified, not all built. | Local, no account |
 | Sites | Saved work list and block list (US-015) | **SPECIFIED, not built.** | Local, no account |
 | Block window | Intention and "That's still true." No duration. | **SPECIFIED, not built.** | Local, no account |
@@ -337,7 +337,7 @@ The Dashboard looks like the chosen screenshot, but the Review is the app's **fi
 
 ### 7.1 Information order
 
-1. **YOU MEANT TO** and the exact intention sentence (or `No intention was written for this session.`).
+1. **YOU MEANT TO** and the exact typed intention sentence (or `No intention was written for this session.`). **Read as:** follows only when the stored reading is non-empty and differs from the trimmed typed sentence; absent when null or identical. Not on Running or Mini.
 2. **Window switches** count, only if its counting definition is confirmed. State the recorded scope; unrecorded time is not counted.
 3. **Detours** if defined or **drifted windows** with truthful per-visit labels; include uncertainty rather than implying all drifted time is known.
 4. **Intention-over-session strip** (same component as Dashboard but here it belongs to the single ended session).
@@ -349,11 +349,15 @@ The Dashboard looks like the chosen screenshot, but the Review is the app's **fi
 
 ### 7.2 Label and loading rules
 
-- A rule match has source `rule`; a repeated-tap match has source `memory`; a low-confidence model result remains **shown as unclear** after the display gate, even if a raw model label exists. Use `shown` from `ReviewVisit`, not the raw `verdict.label`, for user-facing labeling.
+- A rule match has source `rule`; a repeated-tap match has source `memory`; a model result shows the stored label, including when confidence is below τ or τ is missing. The review shows Serves or Drifts; **Not this** on a non-user row flips the label via `review.tap`. Use `shown` from `ReviewVisit`.
 - Show pending judgments as `Labelling…` (review only, never live in Running). Local model missing/error yields honest Unclear and status; it does **not** block session recording.
-- Clicking `Served` or `Drifted` on an unclear row calls `review.tap(id, label)`, updates source to user, and refreshes the displayed row and pattern. A second click on a later visit may affect memory only through the actual harness rules.
+- **Not this** calls `review.tap(id, label)` with the opposite label, updates source to user, and refreshes the displayed row and pattern. A second correction on a later visit may affect memory only through the actual harness rules.
 - No source may be inferred from app logo or color. Tooltip and row text must state source when a verdict exists.
 - Do not show `0` switches or `0` detours for completely unrecorded sessions as if this means the user stayed focused. Include the **Not recorded** gap.
+
+### 7.3 Coach
+
+Post-session conversation only ([ADR-017](adr/ADR-017-coach-and-companion.md)). Never in Running, Mini, Idle, or the Dashboard. The one in-session intention reading ([ADR-019](adr/ADR-019-intention-reading.md)) is not coach UI and does not appear on those surfaces.
 
 ## 8. Permissions, Idle, Declare, Running, Mini, Privacy
 

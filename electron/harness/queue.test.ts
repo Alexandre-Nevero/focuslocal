@@ -86,7 +86,14 @@ test("judgment queue lifecycle", async (t) => {
     t.mock.module("../windows.ts", {exports: {
         ROUTE_PATTERN: /^(idle|declare|permissions|running|review\/[\w-]+|history|privacy|mini)$/,
         openMain: () => {},
-        toggleMiniWindow: () => {}
+        toggleMiniWindow: () => {},
+        showBlock: () => {},
+        setTrayTip: () => {}
+    }});
+    t.mock.module("../companion-window.ts", {exports: {
+        currentCompanionBounds: () => ({x: 0, y: 0, width: 96, height: 96}),
+        applyCompanionBounds: () => {},
+        setCompanionShown: () => {}
     }});
     t.mock.module("../paths.ts", {exports: {
         ledgerDir: () => dir,
@@ -97,7 +104,13 @@ test("judgment queue lifecycle", async (t) => {
     t.mock.module("../ai/runtime.ts", {exports: {
         runtimeSettled: Promise.resolve(),
         getJudge: () => judge,
-        runtimeStatus: () => "ready"
+        runtimeStatus: () => "ready",
+        modelsDir: () => dir
+    }});
+    t.mock.module("../ai/coach.ts", {exports: {
+        askCoach: async () => "",
+        stopCoach: async () => {},
+        analyzeIntention: async () => null
     }});
 
     // Import after installing native/model/path seams. Keep IPC, queue, harness, and judgeWindow real.

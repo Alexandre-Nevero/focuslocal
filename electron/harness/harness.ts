@@ -19,13 +19,14 @@ const none = {memoryId: null, reason: null, modelId: null, modelStage: null, lat
 
 /**
  * `recall` returns a memory row only at tap_count >= 2 (BR-004). `judge` is null when the model is missing or failed to
- * load: the model stage then stores unclear (BR-003).
+ * load: the model stage then stores drifts without calling the model (BR-003, ADR-020).
  */
 export async function labelWindow(
     session: {intention: string, targets: readonly DeclaredTarget[]},
     w: WindowFacts,
     recall: (key: string) => {id: string, label: Label} | null,
-    judge: Judge | null
+    judge: Judge | null,
+    task?: () => Promise<string | null>
 ): Promise<Labelled> {
     const rule = ruleLabel(session.targets, w);
     if (rule != null)
@@ -37,7 +38,17 @@ export async function labelWindow(
         return {...none, source: "memory", label: remembered.label, memoryId: remembered.id};
 
     if (session.intention === "" || judge == null)
-        return {...none, source: "model", label: "unclear"};
+        return {...none, source: "model", label: "drifts"};
 
-    return {...none, source: "model", modelId: MODEL_ID, ...await judgeWindow(judge, session.intention, w)};
+    let intention = session.intention;
+    if (task != null) {
+        try {
+            const restated = await task();
+            if (restated != null && restated.trim() !== "")
+                intention = restated;
+        } catch {
+        }
+    }
+
+    return {...none, source: "model", modelId: MODEL_ID, ...await judgeWindow(judge, intention, w)};
 }

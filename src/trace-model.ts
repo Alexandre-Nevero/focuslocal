@@ -11,7 +11,10 @@ export function variantOf(visit: ReviewVisit): Variant {
     if (visit.kind === "away")
         return "away";
 
-    return visit.shown ?? "judging";
+    const shown = visit.shown;
+    if (shown === "unclear")
+        return "drifts";
+    return shown ?? "judging";
 }
 
 export const traceOrder: readonly Variant[] = ["serves", "drifts", "unclear", "judging", "away", "unrecorded"];

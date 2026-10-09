@@ -8,7 +8,12 @@ import {runtimeStatus} from "./ai/runtime.ts";
 import {MODEL_ID} from "./ai/judge.ts";
 import {startCapture, stopCapture} from "./capture/poller.ts";
 import {memoryKey} from "./harness/memory.ts";
-import {discardJudgments} from "./harness/queue.ts";
+import {discardJudgments, prepareIntent} from "./harness/queue.ts";
+import {askCoach, type CoachAction, type LocalRecord} from "./ai/coach.ts";
+import {modelsDir} from "./ai/runtime.ts";
+import {applyCompanionBounds, currentCompanionBounds, setCompanionShown} from "./companion-window.ts";
+import {fillBlock, matchPreset} from "./presets.ts";
+import {listSaved, readSwitch, removeTarget, saveTarget, writeSwitch} from "./saved-lists.ts";
 import {openMain, ROUTE_PATTERN, toggleMiniWindow} from "./windows.ts";
 import type {
     DeclaredTarget, HistoryRow, Label, LedgerChannel, LedgerEvents, Outcome, Permissions, PermissionState, Privacy, Review,
@@ -34,6 +39,7 @@ function readSession(row: Row): Session {
     return {
         id: String(row.id),
         intention: String(row.intention),
+        analyzedIntent: str(row.analyzed_intent),
         startedAt: String(row.started_at),
         endedAt: str(row.ended_at),
         outcome: str(row.outcome) as Outcome | null,
@@ -55,14 +61,47 @@ function readTau(): number | null {
 
 const durationMs = (from: string, to: string) => Math.max(0, Date.parse(to) - Date.parse(from));
 
-function getReview(sessionId: string): Review {
+function buildLocalRecord(sessionId: string): LocalRecord {
+    const db = getDb();
+    const sessionCount = Number(db.prepare("SELECT count(*) AS n FROM session").get()!.n);
+    const yesCount = Number(db.prepare("SELECT count(*) AS n FROM session WHERE outcome = 'yes'").get()!.n);
+    const notYetCount = Number(db.prepare("SELECT count(*) AS n FROM session WHERE outcome = 'not_yet'").get()!.n);
+    const blockHits = db.prepare("SELECT target, kind FROM block_hit WHERE session_id = ? ORDER BY reached_at")
+        .all(sessionId)
+        .map((row) => ({target: String(row.target), kind: row.kind as "site" | "app"}));
+    const saved = listSaved();
+    const repeatedReaches = db.prepare(`
+        SELECT app_name FROM visit GROUP BY app_name HAVING count(DISTINCT session_id) > 1 ORDER BY app_name
+    `).all().map((row) => String(row.app_name));
+    return {
+        sessionCount,
+        yesCount,
+        notYetCount,
+        labelMs: {},
+        repeatedReaches,
+        blockHits,
+        workList: saved.filter((t) => t.role === "work").map((t) => t.target),
+        blockList: saved.filter((t) => t.role === "block").map((t) => t.target)
+    };
+}
+
+function coachActionsWire(actions: CoachAction[]) {
+    return actions.map((action) => {
+        if (action.type === "open-review")
+            return {type: action.type, sessionId: action.sessionId};
+        if (action.type === "add-block" || action.type === "add-work")
+            return {type: action.type, target: action.target};
+        return {type: action.type};
+    });
+}
+
+export function getReview(sessionId: string): Review {
     const db = getDb();
     const sessionRow = db.prepare("SELECT * FROM session WHERE id = ?").get(sessionId);
     if (sessionRow == null)
         throw new Error(`No session ${sessionId}`);
 
     const session = readSession(sessionRow);
-    const tau = readTau();
     const rows = db.prepare(`
         SELECT v.*, d.id AS d_id, d.memory_id, d.source, d.label, d.reason, d.model_id, d.model_stage, d.latency_ms, d.confidence
         FROM visit v LEFT JOIN verdict d ON d.visit_id = v.id
@@ -84,9 +123,6 @@ function getReview(sessionId: string): Review {
                 latencyMs: num(r.latency_ms),
                 confidence: num(r.confidence)
             };
-        // Display gate (system-design §9): a model label below tau, or with no tau yet, shows as unclear.
-        const gated = verdict?.source === "model" && (tau == null || verdict.confidence == null || verdict.confidence < tau);
-
         return {
             id: String(r.id),
             sessionId,
@@ -98,7 +134,7 @@ function getReview(sessionId: string): Review {
             endedAt: str(r.ended_at),
             kind: r.kind === "away" ? "away" : "attention",
             verdict,
-            shown: verdict == null ? null : gated ? "unclear" : verdict.label
+            shown: verdict == null ? null : verdict.label === "unclear" ? "drifts" : verdict.label
         };
     });
 
@@ -200,9 +236,25 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[], name: st
     return value as T;
 }
 
+export function endRunningSession() {
+    const db = getDb();
+    const running = runningSession();
+    if (running == null)
+        throw new Error("No session is running");
+
+    const now = new Date().toISOString();
+    stopCapture();
+    db.prepare("UPDATE session SET ended_at = ? WHERE id = ?").run(now, running.id);
+    emit("session:changed", {sessionId: null});
+    openMain(`review/${running.id}`);
+    return {sessionId: running.id};
+}
+
 const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
     "session.start"(input: unknown): Session {
-        const {intention, targets} = (input ?? {}) as {intention?: unknown, targets?: unknown};
+        const {intention, targets, cycle} = (input ?? {}) as {
+            intention?: unknown, targets?: unknown, cycle?: unknown
+        };
         if (!Array.isArray(targets))
             throw new TypeError("targets must be an array");
         const declared = targets.map((t: {target?: unknown, role?: unknown}): DeclaredTarget => ({
@@ -223,6 +275,25 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
             for (const {target, role} of declared)
                 db.prepare("INSERT OR REPLACE INTO declared_target (id, session_id, target, role) VALUES (?, ?, ?, ?)")
                     .run(randomUUID(), id, target, role);
+            if (cycle != null) {
+                if (typeof cycle !== "object")
+                    throw new TypeError("cycle must be an object");
+                const {workMin, breakMin, count} = cycle as {
+                    workMin?: unknown, breakMin?: unknown, count?: unknown
+                };
+                const work = Number(workMin);
+                const breakM = Number(breakMin);
+                const cycles = Number(count);
+                if (!Number.isFinite(work) || work <= 0)
+                    throw new TypeError("cycle.workMin must be a positive number");
+                if (!Number.isFinite(breakM) || breakM < 0)
+                    throw new TypeError("cycle.breakMin must be a non-negative number");
+                if (!Number.isInteger(cycles) || cycles < 1 || cycles > 8)
+                    throw new RangeError("cycle.count must be an integer from 1 to 8");
+                db.prepare(`
+                    UPDATE session SET work_min = ?, break_min = ?, cycle_count = ?, phase = 'work' WHERE id = ?
+                `).run(work, breakM, cycles, id);
+            }
             db.exec("COMMIT");
         } catch (err) {
             db.exec("ROLLBACK");
@@ -230,22 +301,10 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
         }
         emit("session:changed", {sessionId: id});
         startCapture(id);
+        prepareIntent(id, sentence);
         return readSession(db.prepare("SELECT * FROM session WHERE id = ?").get(id)!);
     },
-    "session.end"() {
-        const db = getDb();
-        const running = runningSession();
-        if (running == null)
-            throw new Error("No session is running");
-
-        const now = new Date().toISOString();
-        stopCapture();
-        db.prepare("UPDATE session SET ended_at = ? WHERE id = ?").run(now, running.id);
-        emit("session:changed", {sessionId: null});
-        // The review follows End wherever End was pressed (popover, mini window, main window).
-        openMain(`review/${running.id}`);
-        return {sessionId: running.id};
-    },
+    "session.end": endRunningSession,
     "session.current": runningSession,
     "review.get": (sessionId) => getReview(text(sessionId, "sessionId")),
     "review.tap": (visitId, label) => tap(text(visitId, "visitId"), oneOf(label, ["serves", "drifts"], "label")),
@@ -293,6 +352,98 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
         if (!ROUTE_PATTERN.test(target))
             throw new TypeError(`Unknown route ${target}`);
         openMain(target as Route);
+    },
+    "sites.list"() {
+        const rows = listSaved();
+        return {
+            work: rows.filter((r) => r.role === "work").map((r) => r.target),
+            block: rows.filter((r) => r.role === "block").map((r) => r.target)
+        };
+    },
+    "sites.save"(target, role) {
+        saveTarget(text(target, "target").trim().toLowerCase(), oneOf(role, ["work", "block"], "role"));
+    },
+    "sites.remove": (target) => removeTarget(text(target, "target").trim().toLowerCase()),
+    "settings.get"() {
+        return {judge: readSwitch("judge"), coach: readSwitch("coach"), companion: readSwitch("companion")};
+    },
+    "settings.set"(key, on) {
+        const switchKey = oneOf(key, ["judge", "coach", "companion"], "key");
+        if (typeof on !== "boolean")
+            throw new TypeError("on must be a boolean");
+        writeSwitch(switchKey, on);
+        if (switchKey === "companion")
+            setCompanionShown(on);
+    },
+    "companion.notWork"() {
+        const running = runningSession();
+        if (running == null)
+            throw new Error("No session is running");
+        const visit = getDb().prepare(`
+            SELECT id FROM visit WHERE session_id = ? AND kind = 'attention' AND ended_at IS NULL
+            ORDER BY started_at DESC LIMIT 1
+        `).get(running.id);
+        if (visit == null)
+            throw new Error("No open attention visit");
+        tap(String(visit.id), "drifts");
+    },
+    "companion.nudge"(dx, dy) {
+        const bounds = currentCompanionBounds();
+        applyCompanionBounds({
+            ...bounds,
+            x: bounds.x + Number(dx),
+            y: bounds.y + Number(dy)
+        });
+    },
+    "companion.resize"(expanded) {
+        const bounds = currentCompanionBounds();
+        const wide = expanded === true;
+        applyCompanionBounds({
+            x: bounds.x,
+            y: bounds.y,
+            width: wide ? 416 : 96,
+            height: wide ? 420 : 96
+        });
+    },
+    async "coach.ask"(sessionId, question) {
+        if (!readSwitch("coach"))
+            throw new Error("Coach is off");
+        const id = text(sessionId, "sessionId");
+        const row = getDb().prepare("SELECT ended_at FROM session WHERE id = ?").get(id);
+        if (row == null)
+            throw new Error(`No session ${id}`);
+        if (row.ended_at == null)
+            throw new Error("The session is still running");
+
+        const prior = getDb().prepare(`
+            SELECT role, text FROM coach_turn WHERE session_id = ? ORDER BY created_at
+        `).all(id) as {role: string, text: string}[];
+        const messages = prior.map((turn) => ({
+            role: turn.role === "assistant" ? "coach" as const : "user" as const,
+            text: turn.text
+        }));
+        const userText = text(question, "question");
+        messages.push({role: "user", text: userText});
+
+        const review = getReview(id);
+        const record = buildLocalRecord(id);
+        const {reply, actions} = await askCoach(modelsDir(), review, record, messages);
+
+        const now = new Date().toISOString();
+        const db = getDb();
+        db.prepare("INSERT INTO coach_turn (id, session_id, role, text, created_at) VALUES (?, ?, 'user', ?, ?)")
+            .run(randomUUID(), id, userText, now);
+        db.prepare("INSERT INTO coach_turn (id, session_id, role, text, created_at) VALUES (?, ?, 'assistant', ?, ?)")
+            .run(randomUUID(), id, reply, now);
+        return {reply, actions: coachActionsWire(actions)};
+    },
+    "presets.fill"(intention, work) {
+        if (!Array.isArray(work))
+            throw new TypeError("work must be an array");
+        const sentence = text(intention, "intention");
+        const workList = work.map((w) => text(w, "work entry").trim().toLowerCase());
+        const savedBlock = listSaved().filter((t) => t.role === "block").map((t) => t.target);
+        return fillBlock({intention: sentence, savedBlock, work: workList, preset: matchPreset(sentence)});
     }
 };
 

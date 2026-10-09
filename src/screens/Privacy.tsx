@@ -1,6 +1,7 @@
 import {useState, type ReactNode} from "react";
 import {ConfirmStep, ErrorNote, Page} from "../components.tsx";
 import {dayLabel, modelStatusWord, timeOfDay} from "../format.ts";
+import {Switches} from "./Switches.tsx";
 import {go, ledger, useLoad} from "../ledger.ts";
 import {themes, useTheme, type Theme} from "../theme.ts";
 import type {Privacy as PrivacyFacts} from "../shared/types.ts";
@@ -74,6 +75,7 @@ function labelsLine(facts: PrivacyFacts) {
 export function Privacy() {
     const [load, reload] = useLoad(() => ledger.privacy.get(), []);
     const [theme, setTheme] = useTheme();
+    const [settings, reloadSettings] = useLoad(() => ledger.settings.get(), []);
 
     return (
         <Page current="privacy">
@@ -94,6 +96,17 @@ export function Privacy() {
                         </div>
                     </Setting>
                 </Group>
+
+                {settings.state === "ready" && (
+                    <Group id="set-features" title="Features">
+                        <Switches
+                            judge={settings.value.judge}
+                            coach={settings.value.coach}
+                            companion={settings.value.companion}
+                            onChange={(key, on) => void ledger.settings.set(key, on).then(() => reloadSettings())}
+                        />
+                    </Group>
+                )}
 
                 {load.state === "loading" && <div className="skeleton skeleton-list" aria-label="Loading settings…" />}
                 {load.state === "error" && <ErrorNote title="Settings couldn't load." error={load.error}>Close this window and open it again.</ErrorNote>}
@@ -148,7 +161,7 @@ export function Privacy() {
                                 </Setting>
                                 <Setting
                                     name="Confidence bar"
-                                    description="Model labels below this show as Unclear, so you decide."
+                                    description="The review shows the label Twofold stored."
                                 >
                                     <span className="setting-fact">{load.value.tau ?? "Not set"}</span>
                                 </Setting>
