@@ -104,13 +104,16 @@ function sendAssistantState() {
         assistant.webContents.send("ledger:assistant:state", getAssistantState());
 }
 
+/** Collapsed companion window edge, in DIPs. The renderer's .assistant-control is the same size (src/styles.css). */
+const ASSISTANT_SIZE = 88;
+
 /** Creates the startup-owned assistant without taking focus. */
 export function createAssistantWindow() {
     if (assistant != null && !assistant.isDestroyed())
         return assistant;
 
     const {workArea} = screen.getPrimaryDisplay();
-    const size = 88;
+    const size = ASSISTANT_SIZE;
     assistantCollapsedBounds = {
         x: workArea.x + workArea.width - size - 16,
         y: workArea.y + workArea.height - size - 16,
@@ -205,8 +208,8 @@ export function toggleAssistant(): AssistantWindowState {
     assistantCollapsedBounds = {
         x: collapsed.x,
         y: collapsed.y,
-        width: 56,
-        height: 56
+        width: ASSISTANT_SIZE,
+        height: ASSISTANT_SIZE
     };
     const {workArea} = screen.getDisplayMatching(assistantCollapsedBounds);
     const width = Math.min(380, workArea.width);
