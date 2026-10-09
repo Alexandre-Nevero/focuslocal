@@ -2,7 +2,21 @@
 
 A desktop session review. You say what you meant to finish. The app records the windows you actually used. At the end it asks whether you finished it. Judgment runs on the machine. The window title does not leave it.
 
-This repository is the product record for that rebuild. There is no application code yet. A judge cannot run Ledger from this commit.
+This repository is the product record and the app. The app shell, local store, and IPC contract run today; capture, the harness, and the screens are being built (see the open issues).
+
+## Run it (Windows 10 first)
+
+Needs Node 24 and npm 11. The first `npm install` downloads the pinned model (1.28 GB, hash-checked) into `models/`; the first run downloads the Electron binary.
+
+```text
+npm install
+npm run dev        # Vite dev server + Electron, hot reload. LEDGER_DEBUG_PORT=9333 npm run dev exposes DevTools.
+npm start          # build, then run the built app (what a judge runs)
+npm run typecheck
+npm run lint
+```
+
+Ledger lives in the tray: left-click opens the popover, right-click has Open Ledger, Show mini window, and Quit. Data is in `%APPDATA%\Ledger\ledger.db`.
 
 ## Read this first
 
@@ -24,8 +38,8 @@ Ledger reuses the problem and several decisions from MEANT, a project Alexandre 
 
 A four-window probe on 2026-10-09, Apple M4, 16 GB, macOS 26.5, showed the on-device model answering in about 0.2 seconds once warm and getting two of the four windows wrong. That probe did not select the runtime.
 
-Ledger builds upon Electron, React, electron-vite, node-llama-cpp/llama.cpp, Qwen3.5-2B (Apache-2.0, plus a LICENSE copy in `models/`), and @miniben90/x-win. Laya, Kev, GLiNER, Decider, and Jev were evaluated and not shipped (Decider pending O5). The choices are in [ADR-003](docs/adr/ADR-003-electron-and-node-llama-cpp.md) and [ADR-005](docs/adr/ADR-005-system-one-plus-slm.md).
+Ledger builds upon Electron, React, Vite with vite-plugin-electron (from the node-llama-cpp `electron-typescript-react` template), node-llama-cpp/llama.cpp, Qwen3.5-2B (Apache-2.0, from `unsloth/Qwen3.5-2B-GGUF`), and @miniben90/x-win. Laya, Kev, GLiNER, Decider, and Jev were evaluated and not shipped (Decider pending O5). The choices are in [ADR-003](docs/adr/ADR-003-electron-and-node-llama-cpp.md) and [ADR-005](docs/adr/ADR-005-system-one-plus-slm.md).
 
 ## Hackathon
 
-AppBuildersPH Hackathon 2026. Theme is local AI. Code freeze is 2026-10-10 10:00 Asia/Manila. One public repository. This file will be wrong the moment the first slice of the app lands, and it should be updated then rather than left as a claim that the app runs.
+AppBuildersPH Hackathon 2026. Theme is local AI. Code freeze is 2026-10-10 10:00 Asia/Manila. One public repository.

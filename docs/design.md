@@ -105,7 +105,7 @@ Last synced: 2026-10-09, against an empty tree.
 
 **Tool/library defaults this project deliberately overrides:**
 
-- React through electron-vite (scaffold: `npm create node-llama-cpp@latest -- --template electron-typescript-react`). Default styling and components inherit OS theme via CSS variables; no external component library or unrequested animation presets.
+- React, built with Vite and `vite-plugin-electron` from the node-llama-cpp `electron-typescript-react` template ([ADR-006](adr/ADR-006-template-vite-build.md)). The template's demo UI, Inter font, and markdown/highlight libraries were removed. Styling is plain CSS with OS-following tokens; no component library, no web fonts, no unrequested animation presets.
 
 ## 9. Key Screen Specs
 

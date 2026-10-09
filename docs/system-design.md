@@ -73,7 +73,7 @@ Titles and URLs cross from the OS or the extension into Store and stop. The mode
 | No network client in the build | The review has to work with the network gone, and titles must not leave ([`prd.md` BR-005](prd.md)) | No sync, no hosted backup | The prior project's hosted database and cloud model gateway | Hackathon hard requirement, plus F-012 |
 | Harness order in [ADR-002](adr/ADR-002-harness-order.md) | The probe showed the model is wrong on an obvious window | Three sources to keep visible in the review | A model call on every window | Our judgment |
 | Single file on the machine | One user, one computer, delete means delete the file | No multi-user and no remote restore | Hosted Postgres | Our judgment |
-| Electron 44 + TypeScript + React (electron-vite), node-llama-cpp 3.22 in main, Qwen3.5-2B Q4_K_M from a local path | One codebase on Windows 10, macOS, and Linux Mint with no Rust toolchain; the runtime is in process, not a localhost server | Larger app; a 1.28 GB model file to fetch at setup | Tauri (Rust + MSVC, WebKitGTK); Ollama and llama-server (localhost HTTP); Phi Silica (Windows 11 only); Apple FoundationModels (second runtime) | [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), Bennett |
+| Electron 44 + TypeScript + React (Vite + `vite-plugin-electron`, from the node-llama-cpp template), node-llama-cpp 3.22 in main, Qwen3.5-2B Q4_K_M from a local path | One codebase on Windows 10, macOS, and Linux Mint with no Rust toolchain; the runtime is in process, not a localhost server | Larger app; a 1.28 GB model file to fetch at setup | Tauri (Rust + MSVC, WebKitGTK); Ollama and llama-server (localhost HTTP); Phi Silica (Windows 11 only); Apple FoundationModels (second runtime); electron-vite (ADR-006) | [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-006](adr/ADR-006-template-vite-build.md), Bennett |
 | Three OSes, three frontends: desktop app, widgets, Chromium MV3 extension with a stdio native host writing the same SQLite file; main process is the backend over IPC | The sketch maps onto one app with no localhost API; Linux gets a URL only through the extension | Native host to install per browser; Firefox and Safari have no extension | Localhost HTTP backend; WidgetKit (needs a Team ID) | [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), Bennett |
 | Model stage = System One `decide()` + a JSON-grammar SLM pass on the same model, gated by τ | One model, one runtime; agreement plus τ limits what is asserted | Two passes per residual visit | Laya, Kev, GLiNER, Jev, embedding filter | [ADR-005](adr/ADR-005-system-one-plus-slm.md), Bennett |
 
@@ -128,31 +128,30 @@ The probe, so it is not mistaken for a budget. On 2026-10-09, `SystemLanguageMod
 
 ### Module map
 
-Paths are relative to the repo root after scaffolding.
+Layout of the `electron-typescript-react` template (Vite + `vite-plugin-electron`), Electron 44. `dist/` is the built renderer, `dist-electron/` the built main and preload.
 
-- `src/shared/paths.ts`: `ledgerDir(): string`.
+- `electron/paths.ts`: `ledgerDir(): string`, `dbPath()`, `widgetFilePath()`.
   - Windows: `%APPDATA%\Ledger`. macOS: `~/Library/Application Support/Ledger`. Linux: `${XDG_CONFIG_HOME:-~/.config}/Ledger`.
   - Main uses this function and not `app.getPath`, so the native host resolves the same path.
   - DB: `ledger.db`. Widget file: `widget.txt`.
-- `src/shared/types.ts`:
-  ```ts
-  type Label = 'serves' | 'drifts' | 'unclear';
-  type Source = 'rule' | 'memory' | 'model' | 'user';
-  type ModelStage = 'decide' | 'reason';
-  ```
-  Plus `Visit`, `Verdict`, and `Session` row types that mirror [`data-model.md`](data-model.md).
-- `src/main/store/db.ts`: opens `node:sqlite` `DatabaseSync` with `PRAGMA journal_mode=WAL; PRAGMA busy_timeout=2000; PRAGMA foreign_keys=ON`, then applies `src/main/store/migrations/*.sql` in filename order, recording them in `schema_migration(name)`.
-- `src/main/capture/poller.ts`: the 1 s loop below.
-- `src/main/harness/{rules,memory,harness}.ts`.
-- `src/main/ai/{runtime,judge}.ts`.
-- `src/main/eval/run.ts`.
-- `src/main/widgets.ts`.
-- `src/main/ipc.ts`.
-- `src/native-host/host.ts`, built to `out/native-host/host.js`.
+- `src/shared/types.ts`: `Label`, `Source`, `ModelStage`, `Route`, the row types (`Session`, `Visit`, `Verdict`, `ReviewVisit`, `Review`, `LedgerRow`, `Privacy`, `Permissions`) mirroring [`data-model.md`](data-model.md), and `LedgerApi` (the contract below). Imported by main, preload, and renderer.
+- `electron/store/db.ts`: opens `node:sqlite` `DatabaseSync` with `PRAGMA journal_mode=WAL; PRAGMA busy_timeout=2000; PRAGMA foreign_keys=ON`, then applies `electron/store/migrations/*.sql` (bundled with `import.meta.glob`) in filename order, recording them in `schema_migration(name)`.
+- `electron/index.ts`: entry, single-instance lock, network block, launch recovery.
+- `electron/windows.ts`: main window, tray + popover, mini window, hash routes.
+- `electron/ipc.ts`: the handlers; validates every renderer argument.
+- `electron/preload.ts`: `window.ledger`.
+- `electron/capture/poller.ts`: the 1 s loop below.
+- `electron/harness/{rules,memory,harness}.ts`.
+- `electron/ai/runtime.ts` (load, status), `electron/ai/judge.ts` (S1 + S2).
+- `electron/eval/run.ts`.
+- `src/`: the React renderer, one bundle; `#/<route>` picks the screen.
+- `native-host/host.ts`, built by `vite.host.config.ts` (`npm run build:host`) to `out/native-host/host.js`.
 - `extension/{manifest.json,background.js,popup.html,popup.js}`.
-- `scripts/fetch-model.mjs`, `scripts/install-native-host.mjs`, `scripts/genmon-ledger.sh`, `scripts/run-as-node.mjs`.
+- `scripts/fetch-model.mjs` (runs on `postinstall`), `scripts/install-native-host.mjs`, `scripts/genmon-ledger.sh`.
 - `eval/fixtures.json`.
 - `models/`, gitignored.
+
+Scripts: `npm run dev` (Vite dev server + Electron), `npm start` (build, then run the built app), `npm run build` (installer via electron-builder), `npm run typecheck`, `npm run lint`.
 
 ### IPC contract
 
@@ -162,17 +161,20 @@ Calls:
 - `session.start({intention, targets:[{target, role}]}) → Session`
 - `session.end() → {sessionId}`
 - `session.current() → Session | null`
-- `review.get(sessionId) → {session, visits:(Visit & {verdict: Verdict | null, shown: Label})[], unrecordedMs}`
+- `review.get(sessionId) → {session, visits:(Visit & {verdict: Verdict | null, shown: Label | null})[], unrecordedMs}` (`verdict` and `shown` are null while Harness is judging the visit)
 - `review.tap(visitId, label: 'serves' | 'drifts')`
-- `review.answer(sessionId, 'yes' | 'not_yet' | 'unanswered')`
-- `ledger.list()`
+- `review.answer(sessionId, 'yes' | 'not_yet' | 'unanswered')` (rejects while the session runs)
+- `ledger.list() → {id, intention, startedAt, endedAt, outcome}[]`, newest first
 - `privacy.get() → {modelCalls, modelId | null, modelStatus, tau | null, evalRanAt | null, dbPath}`
 - `privacy.dropMemory()`
 - `privacy.deleteFile()`
 - `permissions.get() → {screen, accessibility}` (macOS values from `systemPreferences`; `'granted'` elsewhere)
 - `widgets.toggleMini()`
+- `windows.open(route)` shows the main window at `#/<route>`. `session.end()` also opens the main window at `review/<id>`.
 
-Events: `verdict:updated {visitId}`, `capture:status {state:'ok' | 'failing' | 'denied'}`.
+Every call rejects with an `Error` on failure; the renderer shows the error and never substitutes data.
+
+Events (`window.ledger.on(name, listener)` returns an unsubscribe): `verdict:updated {visitId}`, `capture:status {state:'ok' | 'failing' | 'denied'}`, `session:changed {sessionId | null}`.
 
 ### Capture loop
 
@@ -183,7 +185,7 @@ Main thread, `setInterval` 1000 ms.
 2. Otherwise call x-win `activeWindow()`. Key = `info.execName` + `title`.
    - If the key equals the open visit's key, update `last_seen_at`.
    - On change, close the old visit and open a new one with `app_name = info.name`, `window_title` truncated to 512 chars, and `url`. URL resolution:
-     - Read x-win's url getter on key change, and again on each later tick while it is still empty and the exec is in the browser set below; write it to the open visit when it arrives. Spike O1 (Windows, Brave and Edge): the first read right after a switch returned `""` and a later read returned the URL. A URL read costs 30–470 ms, so it never runs on a tick where the URL is already known.
+     - Read x-win's url getter on key change, and again on each later tick while it is still empty and the exec is in the browser set below; write it to the open visit when it arrives. Spike O1 (Windows): Brave's first read right after a switch returned `""` and a later read returned the URL; Edge returned `""` on every read (see edge cases). A URL read costs 30–470 ms, so it never runs on a tick where the URL is already known.
      - If that is empty and the exec is in `{chrome, msedge, brave, chromium, google-chrome}`, take `browser_tab.url` when the window title starts with `browser_tab.title` and `browser_tab.updated_at` is within 5 s.
    - Enqueue the closed visit for Harness.
 3. Windows whose `info.processId === process.pid` (Ledger's own) never open a visit; the previous visit continues.
@@ -201,16 +203,24 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 2. **Memory.** `match_key` = URL hostname if a URL exists. Otherwise it is `execName`, unless the exec is a known browser, in which case it is null and memory is skipped. Apply only when `tap_count ≥ 2` (BR-004). Source `memory`.
 3. **Model.**
    - If the intention is empty, or `runtime.status !== 'ready'`, store `unclear` with source `model` and `model_id` null (BR-003).
-   - Otherwise S1:
+   - S1 and S2 share one set of label definitions:
      ```ts
-     decisionContext.decide(doc, {label: {type: 'choice', instruction: 'Does this window serve the stated intention?', criteria: {serves: 'The window is plausibly used to do the intention', drifts: 'The window is unrelated to the intention', unclear: 'Cannot tell from the app, title, and URL'}}})
+     const DEFINITIONS = {
+       serves: 'Work on this task: the file, tool, reference page, or message for it',
+       drifts: 'Not this task: entertainment, social media, games, shopping, news, or other work',
+       unclear: 'Generic window that could be either (new tab, file browser, chat list, calculator)',
+     };
+     const question = `The person said they are working on: "${intention}". Is this window part of that work?`;
+     const doc = `App: ${appName}\nTitle: ${title.slice(0, 200)}\nURL: ${url ?? 'none'}`;
      ```
-     Here `doc` is `Intention: …\nApp: …\nTitle: <first 200 chars>\nURL: …`.
-   - Then S2 on a `LlamaChatSession` over the same model, with `chatWrapper: new QwenChatWrapper({variation: '3.5', thoughts: 'discourage'})`, `maxTokens: 60`, and a grammar from:
+   - S1: `decisionContext.decide(doc, {label: {type: 'choice', instruction: question, criteria: DEFINITIONS}})`. Keep the criteria in this order (serves, drifts, unclear); reversing it cost 2 of 43 dev cases.
+   - S2 on a `LlamaChatSession` over the same model, with `chatWrapper: new QwenChatWrapper({variation: '3.5', thoughts: 'discourage'})`, `maxTokens: 80`, user message `${question}\n\n${doc}`, and a grammar with the reason first, so the label follows a written judgment:
      ```ts
-     llama.createGrammarForJsonSchema({type: 'object', properties: {label: {enum: ['serves', 'drifts', 'unclear']}, reason: {type: 'string', maxLength: 140}}})
+     llama.createGrammarForJsonSchema({type: 'object', properties: {reason: {type: 'string', maxLength: 140}, label: {enum: ['serves', 'drifts', 'unclear']}}})
      ```
-     `maxLength` keeps the JSON closable inside 60 tokens. The system prompt forbids repeating the title or URL. The auto-resolved wrapper opens a `<think>` segment that swallows the grammar's opening `{`, so `grammar.parse` throws (spike O1); `thoughts: 'discourage'` pre-fills an empty, closed thought.
+     System prompt: `You check whether one desktop window is part of the work a person said they are doing. Labels: serves = <DEFINITIONS.serves>. drifts = <DEFINITIONS.drifts>. unclear = <DEFINITIONS.unclear>. Judge only whether the window is used for that work, not whether the work is finished. Give a reason under 140 characters. Never repeat the window title or the URL in the reason.`
+     The auto-resolved wrapper opens a `<think>` segment that swallows the grammar's opening `{`, so `grammar.parse` throws (spike O1); `thoughts: 'discourage'` pre-fills an empty, closed thought.
+   - Why this wording (dev set, 43 authored Windows cases, `spike/tune.mjs`): the first wording ("plausibly used to do the intention" / "unrelated to the intention") made S1 answer `serves` on 43 of 43, and undefined labels made S2 read `serves` as "the work is finished" and answer `drifts` on 35 of 43. With the definitions and the intention in the question, S1 is right on 33/43 (15/15 drifts) and S2 on 34/43; the agreement rule asserts 38/43 at 0.82 precision, and 20 at 0.95 with `confidence ≥ 0.2`. Every wrong assertion had S1 `confidence` ≤ 0.31. The held-out O4 run sets τ; these numbers are not that result.
    - Stored `label` = the S1 choice when S1 and S2 agree and the choice is not `unclear`; otherwise `unclear`.
    - Stored `confidence` = S1 confidence. `reason` = S2 reason, cut to 140 chars, and set to null if it contains the title or URL text (data-model rule). `model_id` = `qwen3.5-2b-q4_k_m`. `model_stage` = `reason` if S2 ran, otherwise `decide`. `latency_ms` = S1 + S2.
    - Budget: S1 and S2 together race a 10 s timeout. On timeout or error, store `unclear` with the error-free fields null. The abort signal is only checked between native evaluations, so a timed-out call can return a few seconds late (14.7 s observed against 10 s, spike O1).
@@ -227,9 +237,10 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 
 ### τ (eval)
 
-- `npm run eval` runs `out/main/eval.js` under the Electron binary with `ELECTRON_RUN_AS_NODE=1`, through `scripts/run-as-node.mjs`.
+- `npm run eval` builds and runs `electron/eval/run.ts` under the Electron binary with `ELECTRON_RUN_AS_NODE=1`.
 - It loads `eval/fixtures.json` into `eval_case`, runs each case through the full Harness against a throwaway in-memory session (it never touches user visits), and writes `eval_run` rows.
-- It prints precision and asserted count per source. τ = the smallest value in {0.50, 0.55, …, 0.95} at which model-source precision over cases with `confidence ≥ τ` and label ≠ `unclear` meets the precision bar in [`idea.md` §9](../idea.md) **and** at least 10 cases are asserted. It upserts `setting('tau', τ)`; if no τ qualifies, it deletes the row.
+- It prints precision and asserted count per source. τ = the smallest value in {0.05, 0.10, …, 0.95} at which model-source precision over cases with `confidence ≥ τ` and label ≠ `unclear` meets the precision bar in [`idea.md` §9](../idea.md) **and** at least 10 cases are asserted. It upserts `setting('tau', τ)`; if no τ qualifies, it deletes the row. The grid starts at 0.05 because S1 `confidence` is `tanh(margin / 2)` of the top two choices: on the 43-case dev set the correct asserted labels sit at 0.05–0.6, and a grid starting at 0.50 would assert almost nothing.
+- `eval/fixtures.json` (O4) is held out. Prompt wording is tuned on a separate dev set (`spike/dev-cases.json` on `spike/smoke`), never on the fixtures.
 - Before any run exists, every model verdict shows as unclear (US-009, idea.md §9).
 
 ### Native host
@@ -259,9 +270,9 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 
 ### No network
 
-- The renderer CSP is `default-src 'self'`.
-- `session.defaultSession.webRequest.onBeforeRequest` cancels every scheme except `file:`, `devtools:`, and `data:`. Only when `!app.isPackaged && process.env.ELECTRON_RENDERER_URL` is set is the dev-server origin allowed.
-- Judges run the built app (`npm start` = `electron-vite preview`), so the dev server never runs for them.
+- The built renderer's CSP is `default-src 'self'` (a meta tag added by `vite.config.ts` at build time; the dev server needs inline scripts for React refresh).
+- `session.defaultSession.webRequest.onBeforeRequest` cancels every scheme except `file:`, `devtools:`, and `data:`. Only when `!app.isPackaged && process.env.VITE_DEV_SERVER_URL` is set are `http:`/`ws:` to the dev-server host allowed.
+- Judges run the built app (`npm start` builds, then runs `electron .` against `dist/`), so the dev server never runs for them.
 
 ### macOS packaging
 
@@ -274,7 +285,7 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 ### Model fetch
 
 - `scripts/fetch-model.mjs` downloads `https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf` (1,280,835,840 bytes) into `models/`.
-- Pinned SHA-256 (from the HF tree API `lfs.oid`, 2026-10-09): `aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223`. The spike's `spike/fetch-model.mjs` on branch `spike/smoke` is the first implementation.
+- Pinned SHA-256 (from the HF tree API `lfs.oid`, 2026-10-09): `aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223`. It runs on `npm install` (`postinstall`) and as `npm run models:fetch`.
 - It skips the download when the file exists and the hash matches. On a mismatch it deletes the partial file and exits 1.
 
 ### Edge cases

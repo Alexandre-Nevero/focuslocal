@@ -1,0 +1,47 @@
+{
+  "name": "ledger",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Desktop session review: a stated intention next to the windows actually used, judged on the device.",
+  "type": "module",
+  "main": "./dist-electron/index.js",
+  "scripts": {
+    "postinstall": "node scripts/fetch-model.mjs",
+    "models:fetch": "node scripts/fetch-model.mjs",
+    "dev": "vite dev",
+    "start": "npm run build:app && electron .",
+    "build:app": "tsc && vite build",
+    "build": "npm run build:app && electron-builder --config ./electron-builder.ts",
+    "typecheck": "tsc",
+    "lint": "eslint --report-unused-disable-directives .",
+    "format": "npm run lint -- --fix"
+  },
+  "dependencies": {
+    "node-llama-cpp": "^3.22.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@eslint/compat": "^2.0.2",
+    "@stylistic/eslint-plugin": "^5.8.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.7.0",
+    "eslint": "^9.39.2",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jsdoc": "^62.5.5",
+    "eslint-plugin-n": "^17.24.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.0",
+    "vite": "^7.3.1",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "zx": "^8.8.5"
+  }
+}
