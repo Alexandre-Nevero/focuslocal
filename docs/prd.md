@@ -1,19 +1,19 @@
 ---
 schema_version: 2.1.0
 status: draft
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 doc: product
 owns: features (F-###) and their MoSCoW priority · personas · user stories (US-###) and their acceptance criteria · cross-cutting business rules (BR-###) · app flow, screen inventory & UX intent · instrumentation taxonomy
 ---
 
-# Product — Ledger
+# Product — Twofold
 
 > **Purpose:** the WHAT, for the team. Translates the brief into stories a build can be checked against.
 > Traces back to: `idea.md` §6, §7, §8, §10. Traces forward to: design, system design, data model.
 
 ## 1. Product Purpose & Value Proposition
 
-Ledger is for a self-employed person who works and gets distracted on the same computer. They say what they meant to finish. The app records the windows they actually used. The review puts those two side by side so the gap can be noticed. The question of whether they finished is asked and stored, and it is not the goal. Awareness is. Accountability loses where they conflict ([ADR-008](adr/ADR-008-awareness-over-accountability.md)). An on-device model judges only the windows they did not already classify. The title stays on the machine.
+Twofold is for a self-employed person who works and gets distracted on the same computer. The public name is Twofold ([ADR-013](adr/ADR-013-display-name-twofold.md)). Code, storage, and IPC still say ledger. They say what they meant to finish. The app records the windows they actually used. The review puts those two side by side so the gap can be noticed. The question of whether they finished is asked and stored, and it is not the goal. Awareness is. Accountability loses where they conflict ([ADR-008](adr/ADR-008-awareness-over-accountability.md)). An on-device model judges only the windows they did not already classify. The title stays on the machine.
 
 The one-sentence form is [`idea.md` §6](../idea.md). This paragraph is the only longer form.
 
@@ -38,17 +38,22 @@ IDs and MoSCoW tiers match [`idea.md` §7](../idea.md). Nothing here adds an ID.
 |---------|---------|----------|------------------|-----------------|
 | F-001 | Declare the intention and today's work and distraction list. Start immediately. | Must | The review needs the sentence. | |
 | F-002 | Record the frontmost app, title, URL when available, and time away. | Must | Otherwise the answer comes from memory. | |
-| F-003 | Judge in harness order. Rules, then memory, then the on-device model. Store source and label. | Must | The model alone mislabeled the probe. See [ADR-002](adr/ADR-002-harness-order.md). | |
+| F-003 | Judge in harness order. Rules, then memory, then System One. Store source, label, and confidence. No reason. | Must | The model alone mislabeled the probe. See [ADR-002](adr/ADR-002-harness-order.md) and [ADR-011](adr/ADR-011-coach-companion-and-system-one.md). | |
 | F-004 | Review the session so the gap can be noticed. The finish question is secondary. | Must | The training loop in [`idea.md` §1](../idea.md). | |
 | F-005 | Memory from repeated taps. One tap does not become memory. | Must | The second session has to show a skipped model call. | |
-| F-006 | History of past sessions. Repetition shows up as rows. | Should | Pattern lags behind a single review. | Core value survives a delay. |
+| F-006 | History. Day is a timeline. Month is rows. | Should | Pattern lags behind a single review. | No donut and no hours headline. See [ADR-012](adr/ADR-012-meant-loop-on-device.md). |
 | F-007 | Privacy panel, drop memory, delete the local file. | Must | The local claim has to be inspectable. | |
 | F-008 | Eval set, precision only from a run. | Must | A claimed accuracy with no run fails the event. | |
-| F-009 | Block sites or apps during the session. | Won't | Would hide the visits the review needs. | Reason and reconsider condition are in [`idea.md` §7](../idea.md). |
+| F-009 | Block today's sites and apps. Record the reach, not a duration. | Should | The popup asks what to block. | Work list and a host named in the intention are never blocked. See [ADR-012](adr/ADR-012-meant-loop-on-device.md). |
 | F-010 | In-session drift signal. | Won't | A wrong flag would interrupt the block. | See [ADR-001](adr/ADR-001-silent-review.md). |
-| F-011 | Review coach. | Won't | Advice pressures the outcome answer. | See [`idea.md` §7](../idea.md). |
+| F-011 | Coach, after the session, from this block and the local record. A suggestion needs a button. | Should | The record is the gap. The coach can add a reach to the block list. | See [ADR-014](adr/ADR-014-coach-reads-the-local-record.md). |
 | F-012 | Account and sync. | Won't | An account is a network surface. | See [`idea.md` §7](../idea.md). |
 | F-013 | Score, rate, streak, or hours headline. | Won't | That number is what a manager would want. | See [`idea.md` §7](../idea.md). |
+| F-014 | Desktop companion. The coach's character. Drag, hover, tap opens the popup. | Should | The coach needs a body that is not a menu item. | No verdict on it while a session runs. See [ADR-011](adr/ADR-011-coach-companion-and-system-one.md). |
+| F-015 | Cycle, phase mark, and the popup asking when time ends. | Should | The block needs a length, and the question has to appear. | No dial. See [ADR-012](adr/ADR-012-meant-loop-on-device.md). |
+| F-016 | Saved work list and block list. The popup can change today only. | Should | The same sites should not be retyped every block. | |
+| F-017 | Presets from the intention. Keyword first. Local model may pick a preset id only. | Should | The block list should follow the sentence. | Start does not wait. |
+| F-018 | Switches for judge, coach, and companion. | Should | The loop has to run with the model off. | |
 
 | Tier | Means | QA obligation |
 |------|-------|----------------|
@@ -112,11 +117,13 @@ Story priority is Must or Should. A Won't feature has no story. No story is stri
 - Given one ended session, when I open history, then that session is listed and the screen states no pattern.
 - Given the same app appears in two or more sessions, when I open history, then I can see that repetition in the rows. The screen does not add a sentence that interprets it.
 - Given any data, when history renders, then counts are words, and it shows no score, no rate, no streak, and no hours headline.
+- Given sessions on one day, when I open the day view, then those sessions are in time order on one trace.
+- Given sessions across days, when I open the month view, then the rows are grouped by day. The screen does not add a donut or a percentage.
 
 **US-008 — See what stayed on the machine** *(F-007)* — Priority: Must
 > As a **Worker**, I want to see what the app ran and where the file is, so that I can check the privacy claim.
 
-- Given any session history, when I open the privacy panel, then it shows the count of verdicts whose source is model, the model id or the fact that none is configured, and a statement that this build has no network client.
+- Given any session history, when I open the privacy panel, then it shows the count of verdicts whose source is model, the count of coach turns, the model id or the fact that none is configured, and a statement that this build has no network client.
 - Given I drop memory, when the panel confirms, then memory rows are gone and past visits keep their verdict labels; tapping the same distinct visits again can teach memory.
 - Given a judgment is pending, when I delete the local file successfully, then sessions and the file are gone, and a late model result cannot recreate them or write into a replacement Store.
 - Given file deletion is retrying a transient lock, when another data operation is requested, then it rejects until deletion finishes; duplicate delete requests share the same operation.
@@ -137,17 +144,77 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 - Given the session's wall clock is longer than the sum of visit intervals, when the review opens, then it states the unrecorded duration and does not assign that duration to a window.
 - Given a sleep or capture-failure gap has closed the last visit, when the next captured tick reports idle or locked, then the new away visit starts at that tick, and the gap remains unrecorded rather than becoming away time.
 
+**US-011 — Ask the coach after the block** *(F-011)* — Priority: Should
+> As a **Worker**, I want to ask about a block that has ended, so that the record can be talked about without a second model and without a lecture.
+
+- Given a session has ended, when I ask the coach about it, then the reply is produced by the on-device model from figures the app computed for that session, and the reply is stored.
+- Given a session is still running, when I look at the running screen or the companion popup, then the coach has nothing to say there.
+- Given the reply contains a number that was not in those figures, when it would be shown, then it is not shown, and the screen says the coach could not answer from the record.
+- Given I answered yes or not yet, when the coach replies, then it does not praise yes and does not scold not yet.
+- Given the coach proposes an action, when that action is not start a block, add to the block list, add to the work list, open a review, or open Sites, then the suggestion is not shown. The reply about the record can still show.
+- Given a session has ended, when the coach is asked, then its figures include that session's visits, labels, sources, and block hits, plus counts from the local file. A first session has empty history and the reply still comes from the block just ended.
+- Given a reach is not on the block list and not on the work list, when the coach suggests it, then the suggestion is a Block button that adds it to the saved block list.
+- Given the reply states a number, when that number is not in the computed figures and not in a corpus claim labeled verified, then the reply is not shown.
+
+**US-012 — Keep the coach's character on the desktop** *(F-014, F-011)* — Priority: Should
+> As a **Worker**, I want the coach's character on the desktop, so that I can move it, and tap it when I want it.
+
+- Given the app is open, when I drag the companion, then it follows the pointer, and a drag does not open the popup and does not write a label.
+- Given a session is running and an attention visit is open, when I tap "This isn't the work", then that visit's verdict source is user and the label is drifts, and the popup does not show the label.
+- Given that was the first tap for that app or site, when the next session visits it, then memory does not supply the label.
+- Given no session is running, when I tap the companion, then the popup is the coach for the latest ended session, or it says there is no session yet.
+- Given any outcome and any verdicts, when the companion is drawn, then it looks the same.
+
+**US-013 — Block what I named** *(F-009)* — Priority: Should
+> As a **Worker**, I want a named site or app to stop while the block runs, so that the list is a brake and the review still shows that I reached for it.
+
+- Given a session is running and the frontmost app is on today's block list and not on today's work list, when it comes to the front, then a desktop app is hidden, the block window shows the intention and "That's still true.", and a hit is stored with no duration.
+- Given the target is a site and the extension is installed, when I open that site, then the page is replaced and the hit has no duration.
+- Given the target is on today's work list, or the intention names that host, when I open it, then it is not blocked.
+- Given the session is in a break, when a blocked target comes to the front, then it is still blocked and the judge does not run.
+- Given the session has ended, when the review opens, then each hit is listed as a reach and is not given a duration on a window.
+
+**US-014 — Give the block a length** *(F-015)* — Priority: Should
+> As a **Worker**, I want a work and break length, so that the question shows up when the work ends.
+
+- Given I pick `25 work · 5 break` and two cycles, when I press Start, then the session length is 55 minutes and it ends after the second work period.
+- Given a timed session reaches its end, when I have not pressed End, then the popup comes forward and asks whether I finished, and the tray shows `?` until I answer or dismiss.
+- Given I press End in the popup, when the session stops, then the question is on that popup and a second popup does not open.
+- Given the phase changes, when I look at the tray, then it says work or break, with no countdown and no color.
+
+**US-015 — Keep my lists** *(F-016)* — Priority: Should
+> As a **Worker**, I want my sites saved, so that today's popup starts from them.
+
+- Given I saved a work list and a block list, when I open the popup, then those chips are filled in.
+- Given I remove a chip and start, when the next day opens the popup, then the saved list still has that chip. This session does not.
+
+**US-016 — Fill the block list from the sentence** *(F-017)* — Priority: Should
+> As a **Worker**, I want the sentence to suggest what to block, so that I do not assemble the list by hand every time.
+
+- Given the intention contains a whole word from the writing preset, and I have not edited a chip, when the popup fills, then the writing block list is merged in and YouTube is not given a pass that the writing preset does not have.
+- Given the intention names instagram.com, when the chips fill, then Instagram is not on the block list.
+- Given no keyword matches, when the local model answers, then the answer is one preset id or none, and it is not a site name.
+- Given I press Start before that answer returns, when the session starts, then it starts from the saved list and the late answer is dropped.
+
+**US-017 — Turn a piece off** *(F-018)* — Priority: Should
+> As a **Worker**, I want to turn the judge, the coach, or the companion off, so that the rest of the loop still runs.
+
+- Given the judge is off, when a visit matches neither a rule nor memory, then the label is unclear and the model is not called.
+- Given the coach is off, when a session has ended, then the coach is not shown.
+- Given the companion is off, when the app is open, then the pet is not shown.
+- Given any of those are off, when a session runs, then capture, blocking, and the review still work.
+
 ### 4.1 Cross-cutting rules (`BR-###`)
 
 | `BR-###` | Rule | Invoked by |
 |----------|------|------------|
-| BR-001 | While a session is running, the UI shows the intention and the clock. It does not show a verdict, a warning, or praise. | US-001, US-002, US-004 |
-| BR-002 | The outcome answer does not change the running UI. The review and the history do not praise yes or scold not yet. | US-004, US-007 |
+| BR-001 | While a session is running, the UI shows the intention and the clock. It does not show a verdict, a warning, or praise. | US-001, US-002, US-004, US-011, US-012 |
+| BR-002 | The outcome answer does not change the running UI. The review and the history do not praise yes or scold not yet. | US-004, US-007, US-011, US-012 |
 | BR-007 | Where accountability would change what the person sees, the screen shows the record instead. The finish answer is stored and is not the headline. | US-004, US-007 |
 | BR-003 | A model result that is not serves, drifts, or unclear is stored as unclear. A missing model is the same result. | US-003, US-004 |
-| BR-004 | Memory supplies a label only after the same app or site was tapped on more than one visit. | US-005, US-006 |
+| BR-004 | Memory supplies a label only after the same app or site was tapped on more than one visit. | US-005, US-006, US-012 |
 | BR-005 | Window titles and URLs are written only to the local store. No story sends them to a network client, because this build does not have one. | US-002, US-003, US-008 |
-| BR-006 | No screen shows a productivity score, a rate, a streak, or an hours headline. | US-004, US-007 |
+| BR-006 | No screen shows a productivity score, a rate, a streak, or an hours headline. | US-004, US-007, US-011 |
 
 ## 5. App Flow & UX Intent
 
@@ -162,13 +229,21 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 | Declare | Write the intention and today's lists (US-001) | Start from the idle popover | empty intention / filled / permission missing |
 | Running | Show the intention and the clock until the session ends (US-001, BR-001) | After Start | running / capture failing |
 | Review | Read the record, resolve unclear rows, answer the question (US-004, US-005, US-010) | Session end | loading the record / ready / unanswered on dismiss |
-| History | Past sessions as rows, so a repetition can be noticed (US-007) | Idle popover | empty / one session / repeated app |
+| History | Month of sessions as rows (US-007) | Idle popover | empty / one session / repeated app |
+| Day | That day's sessions on one trace (US-007) | History, or the tray | empty / one or more sessions |
+| Sites | Saved work list and block list (US-015) | Popup, settings | empty / filled |
+| Block window | Intention and "That's still true." (US-013) | A blocked app or site comes to the front | site / app |
+| Settings | Judge, coach, and companion switches (US-017) | Privacy | all on / one off |
 | Privacy | Calls, model id, drop memory, delete file (US-008) | Idle popover, and the review | ready / confirm drop / confirm delete |
 | Mini window | Always-on-top clock and intention display (US-001, BR-001) | Toggle from tray or shortcut | running / no session |
+| Companion | The coach's character on the desktop (US-012) | Present while the app is open | idle / dragging / session running |
+| Coach | Talk about one ended session (US-011) | Companion tap when idle, and the review | no session yet / ready / could not answer |
 | Desktop widget | Display-only desktop layer widget on macOS (US-001, BR-001) | Automatic while session runs | running / no session |
 | Extension popup | Chromium extension popup showing status (US-001, BR-001) | Click extension icon in browser | running / no session |
 
 ### 5.2 App Flow
+
+**Demo path.** One block, in this order, and only the steps the build can show. Type "finish the client pitch deck". The writing preset fills the block list. A window on the work list is serves, from the list. A blocked app is a reach with no duration. One window on neither list is unclear until a tap. The review shows each label's source. The coach names the reach and shows Block. The privacy panel shows the model id and that this build has no network client. A step that is not in the build is skipped, not described as if it ran. See [ADR-014](adr/ADR-014-coach-reads-the-local-record.md).
 
 **Linear (primary path):**
 
@@ -182,15 +257,23 @@ flowchart TD
   Perm -->|no| PermHelp[Permissions]
   PermHelp --> Launch
   Perm -->|yes| Idle[Idle popover]
+  Idle --> Sites[Sites]
   Idle --> Declare[Declare]
   Declare --> Running[Running]
   Running --> Review[Review]
   Running -.-> Mini[Mini window / Desktop widget / Extension popup]
+  Running -.-> BlockWin[Block window]
+  Running -.-> Pet[Companion]
+  Pet -->|session running| NotWork["This isn't the work"]
+  Pet -->|no session| Coach[Coach]
+  Review --> Coach
   Review --> Unclear{Unclear visits}
   Unclear -->|yes| Tap[One tap per row]
   Tap --> Answer[Outcome answer]
   Unclear -->|no| Answer
   Answer --> History[History]
+  History --> Day[Day]
+  Idle --> Settings[Settings]
 ```
 
 **Flow annotations:**
@@ -234,7 +317,7 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 
 - Do not add a cloud model as a fallback when the local one is slow. The review has to finish offline. Revisit only for a feature that is labeled online and is not on the path of F-004.
 - Do not polish macOS or Linux capture in this cycle. The development target is Windows. Revisit only if that path is stable and time remains ([ADR-007](adr/ADR-007-windows-first.md), [`idea.md` §10](../idea.md)).
-- Rejected features F-009 through F-013 stay in §3. They are not repeated here.
+- Rejected features F-010, F-012, and F-013 stay in §3. F-009 is the blocker. It is Should. F-011 is the coach. It is Should.
 
 ## 7. Dependencies & Open Questions
 
@@ -271,4 +354,4 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 - [`design.md`](design.md)
 - [`system-design.md`](system-design.md)
 - [`data-model.md`](data-model.md)
-- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-006](adr/ADR-006-template-vite-build.md), [ADR-007](adr/ADR-007-windows-first.md), [ADR-008](adr/ADR-008-awareness-over-accountability.md)
+- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-006](adr/ADR-006-template-vite-build.md), [ADR-007](adr/ADR-007-windows-first.md), [ADR-008](adr/ADR-008-awareness-over-accountability.md), [ADR-011](adr/ADR-011-coach-companion-and-system-one.md), [ADR-012](adr/ADR-012-meant-loop-on-device.md), [ADR-013](adr/ADR-013-display-name-twofold.md), [ADR-014](adr/ADR-014-coach-reads-the-local-record.md)

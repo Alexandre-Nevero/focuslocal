@@ -12,11 +12,11 @@ implementation_status: specification only; not a claim that these screens or rou
 
 # Design — Twofold
 
-> **Design decision:** The warm-cream dashboard image selected by Alexandre on 2026-10-10 is the **visual target** for Twofold. The product remains the offline desktop session review specified in [`prd.md`](prd.md), not the MEANT web product that supplied some layout patterns.
+> **Design decision:** The warm-cream dashboard image selected by Alexandre on 2026-10-10 is the **visual target** for Twofold. The product remains the offline desktop session review specified in [`prd.md`](prd.md). [ADR-012](adr/ADR-012-meant-loop-on-device.md) adopts MEANT's loop: the start popup, the blocker, the cycle, saved lists, presets, and a day timeline beside the month of rows. It does not adopt MEANT's account, its donut, or its fidelity percentage. Those fight F-012 and BR-006.
 >
 > **Scope boundary:** The selected image approves visual direction, composition, brand treatment, and the dashboard's information hierarchy as a design exploration. It **does not silently override** the PRD's accepted rules, invent backend data, authorize cloud functionality, or prove that the UI exists. Conflicts are explicitly tracked in §2 and §15.
 
-**Repository name and code status.** The repository is currently `focuslocal`. Its documentation, Electron title, storage location, IPC namespace, and README still use the working name **Ledger**. This file proposes the public-facing name **Twofold**. A rename of identifiers, directories, paths, data files, native-host IDs, or packaging metadata is a separate migration. Do not change persistent paths merely to match a mockup.
+**Repository name and code status.** The repository is `focuslocal`. The public name is **Twofold** ([ADR-013](adr/ADR-013-display-name-twofold.md)): `twofold` in the wordmark, Twofold in prose, window titles, tooltips, and screen-reader names. Code, storage, IPC, and the native-host id stay `ledger`. The daily screen may still be labeled Ledger. That word there means the day's record, not the product. Do not rename paths or the database to match the wordmark.
 
 **Source-of-truth order.** Follow [`index.md`](index.md): accepted ADR for a concern, then its owning document. [`prd.md`](prd.md) owns product behavior and screens; [`system-design.md`](system-design.md) owns technical contracts; [`data-model.md`](data-model.md) owns stored fields. This design file owns the visual presentation of those facts. Where the reference image conflicts with those owners, the issue is **OPEN**, not approved by implication.
 
@@ -174,7 +174,7 @@ Avoid low-contrast tiny grey text. Set `font-variant-numeric: tabular-nums` on n
 - Pills/capsules: radius **999 px**. Session highlights and small row pills are warmer panels, not fully saturated buttons.
 - Spacing base: 4 px; regular gaps 8/12/16/24/32; wide content margins 24–32 at 960 px and 48–56 at 1440+.
 - Motion: no entrance choreography or counting animation for results. A short press/focus transition is acceptable; obey `prefers-reduced-motion`.
-- No mascot, gamified badge, victory confetti, flame, streak calendar, or red/green verdict legend.
+- No gamified badge, victory confetti, flame, streak calendar, or red/green verdict legend. The dashboard and the review do not contain a character. The companion is a separate always-on-top window, specified in [ADR-011](adr/ADR-011-coach-companion-and-system-one.md), and it is not a verdict decoration.
 
 ## 4. Screen model and navigation
 
@@ -187,7 +187,7 @@ The **current** renderer (`src/App.tsx`) contains route headings only. `electron
 | **Dashboard** | Chosen month overview plus selected-day peek, overlay, session records | **PROPOSED** `app://dashboard`; existing `app://history` can initially host the layout as a non-breaking replacement. Adding route requires Electron/TypeScript/renderer changes. | Local, no account |
 | **Ledger** | Focused daily time track and session list; selecting session opens Review | **PROPOSED** `app://day/YYYY-MM-DD` or view mode inside existing `app://history`. Not currently present. | Local, no account |
 | **Patterns** | View factual repetition in past session rows | **DEFERRED** new screen: PRD US-007 only permits visible repetition and no interpretation. Do not wire a speculative chart or recommendation engine. | Local, no account |
-| **Field Notes** | Potential longer descriptive session record | **DEFERRED / UNDEFINED** in PRD. Do not invent AI-generated diaries, coaching, or a notes database. | Local, no account |
+| **Field Notes** | Potential longer descriptive session record | **DEFERRED / UNDEFINED** in PRD. Do not invent a notes database. The coach is F-011, not this screen. | Local, no account |
 | **Search glyph** | Would search local sessions | **DEFERRED** (no search story/API). Hide or visibly disable until defined; never a dead clickable control. | Local, no account |
 | **Right circular control** | Occupies avatar position in mockup | **PROPOSED** local Settings/Privacy button with accessible label; **not** a user account/avatar or sign-out. | Local, no account |
 | Permissions | Explain OS capture prompt | Existing `app://permissions` route | Local, no account |
@@ -196,6 +196,12 @@ The **current** renderer (`src/App.tsx`) contains route headings only. `electron
 | History | Past-session access; canonical PRD `US-007` | Existing `app://history`, may be dashboard backing screen | Local, no account |
 | Privacy | Local model/source/file facts and delete actions | Existing `app://privacy` | Local, no account |
 | Mini | Intention and clock only | Existing `app://mini` | Local, no account |
+| Companion | The coach's character. Drag, hover, tap opens the popup (US-012) | **SPECIFIED, not built.** New window, not a route inside the main window. See [ADR-011](adr/ADR-011-coach-companion-and-system-one.md). | Local, no account |
+| Coach | One ended session, from computed figures (US-011). A suggestion needs a button. | **SPECIFIED, not built.** Opens from the companion when idle, and from the review. | Local, no account |
+| Declare popup | Intention, cycle, where it happens, what to block, Start (US-001, US-014, US-016) | Existing `app://declare`. The fields in [ADR-012](adr/ADR-012-meant-loop-on-device.md) are specified, not all built. | Local, no account |
+| Sites | Saved work list and block list (US-015) | **SPECIFIED, not built.** | Local, no account |
+| Block window | Intention and "That's still true." No duration. | **SPECIFIED, not built.** | Local, no account |
+| Day | One day's sessions on the review trace (US-007) | **SPECIFIED, not built.** Not a score dashboard. | Local, no account |
 | macOS desktop widget | Read-only intention and clock | PRD planned, not a current renderer route | Local, no account |
 | Browser extension popup | Read-only intention and clock | PRD planned, not a current renderer route | Local, no account |
 
@@ -473,7 +479,7 @@ Session Review remains a different dedicated layout. The main Dashboard must not
 | Privacy / deletion | `window.ledger.privacy.*` | Show actual local values and implement second-step confirm. No new account/remote deletion story. |
 | Documentation name | README, PRD, ADRs, packaging, source comments | Treat display-name change and source/document renaming as separately scoped work. Accepted ADRs remain history; never rewrite their decision rationale retroactively. |
 
-**Provenance:** MEANT is a layout and typography reference. The new repository already declares it **does not copy MEANT application code**. Reimplement patterns in the FocusLocal/Electron renderer; do not import Next.js pages, Vercel authentication, Postgres queries, cloud Pair/Companion logic, or prior product metrics.
+**Provenance:** MEANT is a layout and typography reference. This repository does not copy that application's code. Do not import its Next.js pages, Vercel authentication, Postgres queries, Groq coach route, or companion overlay. The desktop pet in [ADR-011](adr/ADR-011-coach-companion-and-system-one.md) may reuse the tomato sprite. If it does, the README names the file. Do not copy prior product metrics.
 
 ## 14. Verification checklist
 
@@ -485,7 +491,7 @@ Session Review remains a different dedicated layout. The main Dashboard must not
 - [ ] Overlay has *two readable layers*, with non-color labels and a clearly differentiated Not recorded state.
 - [ ] Cream / Coral / Dusty Blue tones are consistent; Dusty Blue stays in the wordmark and status data stays neutral.
 - [ ] Reference canvas and actual 960×700 are both inspected; actual app is scrollable and fully operable.
-- [ ] Nothing suggests an online account, cloud service, mascot, grade, or performance comparison.
+- [ ] Nothing suggests an online account, cloud service, grade, or performance comparison. The companion, if shown, is the separate pet window, not a character inside the dashboard or the review.
 
 ### Behavior and trust checks
 

@@ -1,7 +1,7 @@
-# Documentation Index — Ledger
+# Documentation Index — Twofold
 
 **Maintained by:** Alexandre Andrei Nevero
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-10
 **FMD version:** 6.1.0
 
 ## 0. Source-of-truth map (one fact, one home)
@@ -21,7 +21,7 @@ There is no decision ledger in this set. Precedence is:
 | How it is built | [system-design.md](system-design.md) | Owned by Bennett Payoyo. Shell and runtime chosen in ADR-003 |
 | Stored shape | [data-model.md](data-model.md) | SQLite types are an assumption |
 | Routes, components, visual states | [design.md](design.md) | In-app routes, not HTTP |
-| Why a choice was made | [ADRs](adr/) | ADR-001 silence. ADR-002 harness order. ADR-003 Electron and node-llama-cpp. ADR-004 three OSes and frontends. ADR-005 System One then the small model. ADR-006 the template Vite build. ADR-007 Windows first, Apple Silicon solo makers later. ADR-008 awareness over accountability |
+| Why a choice was made | [ADRs](adr/) | ADR-001 silence. ADR-002 harness order. ADR-003 Electron and node-llama-cpp. ADR-004 three OSes and frontends. ADR-005 System One then the small model, superseded in part by ADR-011. ADR-006 the template Vite build. ADR-007 Windows first. ADR-008 awareness. ADR-011 coach, System One judge, companion. ADR-012 MEANT's loop on this machine: block, cycle, saved lists, presets, the question, switches, day and month. ADR-013 the public name is Twofold. ADR-014 the coach reads the local record |
 | Which docs were deferred | [context.md](../context.md) | Tests, pitch, security, and the build plan wait on a reason written there |
 
 ## 0.5 Active semantic overlays

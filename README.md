@@ -1,8 +1,8 @@
-# Ledger
+# Twofold
 
 A desktop session review. You say what you meant to finish. The app records the windows you actually used. The review puts those side by side so you can notice the gap. It also asks whether you finished. That answer is stored and is not the point. Judgment runs on the machine. The window title does not leave it.
 
-This repository is the product record and the app. The Windows backend implements capture, Store, the rules → memory → model harness, evaluation, and IPC; the tray shell and Chromium extension relay/popup exist. The desktop declaration, running, review, history, and privacy product screens are still unbuilt. Backend evidence is not an end-to-end product completion claim.
+This repository is the product record and the app. The Windows backend implements capture, Store, the rules → memory → model harness, evaluation, and IPC; the tray shell and Chromium extension relay/popup exist. The declare, running, review, history, and privacy screens are in the renderer. The coach, the pet, and the blocker are specified and not built. A green backend test is not an end-to-end product claim.
 
 ## Run it (Windows 10 first)
 
@@ -18,7 +18,7 @@ npm run typecheck
 npm run lint
 ```
 
-Ledger lives in the tray: left-click opens the popover, right-click has Open Ledger, Show mini window, and Quit. Data is in `%APPDATA%\Ledger\ledger.db`.
+Twofold lives in the tray: left-click opens the popover, right-click has Open Twofold, Show mini window, and Quit. Data is in `%APPDATA%\Ledger\ledger.db`. That folder name stays.
 
 ### Browser extension (Windows only)
 
@@ -30,7 +30,7 @@ node scripts/install-native-host.mjs
 node scripts/check-native-host.mjs
 ```
 
-The installer prints the Extension ID derived from `extension/manifest.json`'s public key; compare that output with the browser's ID rather than copying a second constant. In Chrome, Edge, or Brave, open its extensions page, enable Developer mode, choose **Load unpacked**, and select this checkout's `extension/` folder. Launch Ledger once to create/migrate its Store. The popup shows the intention and clock, or "No session"; tab relay skips private windows. The launcher check validates one real framed status response, not browser integration or model accuracy.
+The installer prints the Extension ID derived from `extension/manifest.json`'s public key; compare that output with the browser's ID rather than copying a second constant. In Chrome, Edge, or Brave, open its extensions page, enable Developer mode, choose **Load unpacked**, and select this checkout's `extension/` folder. Launch Twofold once to create/migrate its Store. The popup shows the intention and clock, or "No session"; tab relay skips private windows. The launcher check validates one real framed status response, not browser integration or model accuracy.
 
 To remove it, remove the extension in each browser and run `node scripts/install-native-host.mjs --uninstall`. Installation refuses to overwrite another checkout's host registration; removal preserves unrelated registrations, values, and subkeys. Building/loading/registering this local extension uses no network and does not fetch Electron. macOS/Linux host installation is deferred under [ADR-007](docs/adr/ADR-007-windows-first.md).
 
@@ -53,11 +53,11 @@ The privacy panel, when it is built, counts model calls and states that the buil
 
 ## Disclosure
 
-Ledger reuses the problem and several decisions from MEANT, a project Alexandre Andrei Nevero built during an internship at Eden Ventures and presented there. The prior write-up is [docs/prd-intent.md](https://github.com/Alexandre-Nevero/meant/blob/main/docs/prd-intent.md) in that repository. This repository does not copy that application's code. The inherited precision bar lives in [`idea.md` §9](idea.md); MEANT's eval scored 0.733 on the verdicts it would have shown. It is not a result for Ledger.
+Ledger reuses the problem and several decisions from MEANT, a project Alexandre Andrei Nevero built during an internship at Eden Ventures and presented there. The prior write-up is [docs/prd-intent.md](https://github.com/Alexandre-Nevero/meant/blob/main/docs/prd-intent.md) in that repository. This repository does not copy that application's code. The inherited precision bar lives in [`idea.md` §9](idea.md); MEANT's eval scored 0.733 on the verdicts it would have shown. It is not a result for Twofold.
 
 A four-window probe on 2026-10-09, Apple M4, 16 GB, macOS 26.5, showed the on-device model answering in about 0.2 seconds once warm and getting two of the four windows wrong. That probe did not select the runtime.
 
-Ledger builds upon Electron, React, Vite with vite-plugin-electron (from the node-llama-cpp `electron-typescript-react` template), node-llama-cpp/llama.cpp, Qwen3.5-2B (Apache-2.0, from `unsloth/Qwen3.5-2B-GGUF`), and @miniben90/x-win. Laya, Kev, GLiNER, Decider, and Jev were evaluated and not shipped (Decider pending O5). The choices are in [ADR-003](docs/adr/ADR-003-electron-and-node-llama-cpp.md) and [ADR-005](docs/adr/ADR-005-system-one-plus-slm.md).
+Twofold builds upon Electron, React, Vite with vite-plugin-electron (from the node-llama-cpp `electron-typescript-react` template), node-llama-cpp/llama.cpp, Qwen3.5-2B (Apache-2.0, from `unsloth/Qwen3.5-2B-GGUF`), and @miniben90/x-win. Laya, Kev, GLiNER, Decider, and Jev were evaluated and not shipped (Decider pending O5). The choices are in [ADR-003](docs/adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-005](docs/adr/ADR-005-system-one-plus-slm.md), and [ADR-011](docs/adr/ADR-011-coach-companion-and-system-one.md). ADR-011 is the spec for the coach, the companion, and a System One judge. ADR-012 is the spec for the start popup, the blocker, the cycle, the saved lists, and the presets. ADR-013 is the public name. ADR-014 is the coach reading the local record, and the corpus file next to the runtime. The running code still uses the ADR-005 agreement pass. It has no coach, no pet, and no blocker yet. The demo path is in [`docs/prd.md`](docs/prd.md).
 
 ## Team
 

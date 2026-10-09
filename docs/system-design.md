@@ -1,12 +1,12 @@
 ---
 schema_version: 2.1.0
 status: draft
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 doc: system-design
 owns: component boundaries and responsibilities · system context · data flow · technology choices and their trade-offs · integration failure behaviour · deployment topology · scaling strategy
 ---
 
-# System Design — Ledger
+# System Design — Twofold
 
 > **Purpose:** the HOW, at component level. Feature behavior stays in [`prd.md`](prd.md). Field types stay in [`data-model.md`](data-model.md).
 
@@ -40,8 +40,11 @@ The boundary is the machine. There is no account server and no model API on the 
 | Store | Read and write the local file | The file and its transactions, not the meaning of a row | The disk | F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008 |
 | NativeHost | Relay the active tab and session status between the extension and Store | Nothing | Store, browser extension | F-002, F-001 |
 | Widgets | Tray, mini window, desktop layer. Show the running session. | Nothing. Reads the session only. | Store | F-001 |
+| Coach | Talk about one ended session, from figures Store already has. | Coach turns. Not verdicts. | Store, local model runtime | F-011 |
+| Companion | The pet. Drag, hover, tap. While a session runs, the popup is the running view plus "This isn't the work". | The pet's position. A tap goes to Harness. | Store, Harness, Coach | F-014, F-011 |
+| Blocker | Stop a site or hide a desktop app on today's block list. Record the reach. | Block hits. Not durations. | Capture, the extension, Store | F-009 |
 
-SessionUI does not write verdicts. A tap goes to Harness. Eval does not write user visits. Fixtures stay in the eval set. Widgets and the extension popup never show verdicts.
+SessionUI does not write verdicts. A tap goes to Harness, including "This isn't the work" on the companion. Eval does not write user visits. Fixtures stay in the eval set. Widgets, the companion, and the extension popup never show verdicts. The coach does not run while a session is open.
 
 ## 3. Data Flow
 
@@ -60,6 +63,11 @@ flowchart LR
   Harness --> Store
   Store --> Review[SessionUI review]
   Store --> Widgets[Widgets]
+  Store --> Coach[Coach]
+  Runtime --> Coach
+  Review --> Coach
+  Companion[Companion] -->|tap| Harness
+  Companion -->|idle| Coach
   Eval[Eval] --> Harness
 ```
 
@@ -75,7 +83,7 @@ Titles and URLs cross from the OS or the extension into Store and stop. The mode
 | Single file on the machine | One user, one computer, delete means delete the file | No multi-user and no remote restore | Hosted Postgres | Our judgment |
 | Electron 44 + TypeScript + React (Vite + `vite-plugin-electron`, from the node-llama-cpp template), node-llama-cpp 3.22 in main, Qwen3.5-2B Q4_K_M from a local path | One codebase on Windows 10, macOS, and Linux Mint with no Rust toolchain; the runtime is in process, not a localhost server | Larger app; a 1.28 GB model file to fetch at setup | Tauri (Rust + MSVC, WebKitGTK); Ollama and llama-server (localhost HTTP); Phi Silica (Windows 11 only); Apple FoundationModels (second runtime); electron-vite (ADR-006) | [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-006](adr/ADR-006-template-vite-build.md), Bennett |
 | Three OSes, three frontends: desktop app, widgets, Chromium MV3 extension with a stdio native host writing the same SQLite file; main process is the backend over IPC | The sketch maps onto one app with no localhost API; Linux gets a URL only through the extension | Native host to install per browser; Firefox and Safari have no extension | Localhost HTTP backend; WidgetKit (needs a Team ID) | [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), Bennett |
-| Model stage = System One `decide()` + a JSON-grammar SLM pass on the same model, gated by τ | One model, one runtime; agreement plus τ limits what is asserted | Two passes per residual visit | Laya, Kev, GLiNER, Jev, embedding filter | [ADR-005](adr/ADR-005-system-one-plus-slm.md), Bennett |
+| Model stage = System One `decide()` on Qwen3.5-2B, gated by τ. The coach is a separate chat on that same model, after the session. | One model, one runtime. A label stays a label. Prose has its own surface. | The judge no longer writes a reason. τ still hides a weak label. | The ADR-005 agreement pass, which put the small model's prose inside the verdict. Laya, Kev, GLiNER, Jev, embedding filter. | [ADR-011](adr/ADR-011-coach-companion-and-system-one.md). ADR-005 still holds for `decide()` and τ. |
 | Backend work belongs to a Store generation; learning votes belong to current memory support, not lifetime tap history | Delete/quit must invalidate late work; conflict/forget must allow reteaching without erasing history | Pending judgments are discarded on delete/quit; old unidentifiable support is reset by migration | Let late work reopen any Store; lifetime visit deduplication or a permanent tap ledger | [ADR-010](adr/ADR-010-backend-work-ownership.md), Bennett |
 
 The probe, so it is not mistaken for a budget. On 2026-10-09, `SystemLanguageModel` on an M4, 16 GB, macOS 26.5, answered in 3.89 seconds cold and about 0.2 seconds warm, and was wrong on 2 of 4 windows. n=4. One machine. Not a latency target and not a precision result.
@@ -117,8 +125,8 @@ The probe, so it is not mistaken for a budget. On 2026-10-09, `SystemLanguageMod
 
 ## 8. Doc Integrity Check
 
-- [x] Each component names what it owns. SessionUI owns the outcome. Capture owns visit boundaries. Harness owns verdicts and memory. Eval owns eval results. Store owns the file. NativeHost and Widgets own nothing.
-- [x] Every Must and Should feature appears in §2. F-009 through F-013 are Won't and have no component.
+- [x] Each component names what it owns. SessionUI owns the outcome. Capture owns visit boundaries. Harness owns verdicts and memory. Eval owns eval results. Store owns the file. Coach owns coach turns. Companion owns the pet's position. NativeHost and Widgets own nothing.
+- [x] Every Must and Should feature appears in §2. F-010, F-012, and F-013 are Won't and have no component. F-009 is Blocker. F-011 is Coach. F-014 is Companion. F-015, F-016, and F-017 are the popup cycle, the saved lists, and the presets, specified in [ADR-012](adr/ADR-012-meant-loop-on-device.md). F-018 is three rows in `setting`.
 - [x] Each technology row names a rejected alternative and an authority. The shell and runtime are chosen in ADR-003, not a silent default.
 - [x] Each integration names a failure mode and the behavior.
 - [x] There is no network-exposed surface to hand to a security doc. The native host speaks stdio; there is no localhost API.
@@ -143,7 +151,7 @@ Layout of the `electron-typescript-react` template (Vite + `vite-plugin-electron
 - `electron/preload.ts`: `window.ledger`.
 - `electron/capture/poller.ts`: the 1 s loop below.
 - `electron/harness/rules.ts`, `memory.ts` (the memory key, shared with `review.tap`), `harness.ts` (`labelWindow`: rules → memory → model, no Electron imports), `queue.ts` (the single-flight queue: reads the visit, writes the verdict, emits).
-- `electron/ai/judge.ts` (model load, warm pair, S1 + S2; no Electron imports), `electron/ai/runtime.ts` (status, model path).
+- `electron/ai/judge.ts` (model load, warmup, System One `decide()`; no Electron imports), `electron/ai/coach.ts` (the post-session chat), `electron/ai/runtime.ts` (status, model path). As of `0320c53`, `judge.ts` still runs the ADR-005 agreement pass. [ADR-011](adr/ADR-011-coach-companion-and-system-one.md) is the spec. The code change is later.
 - `electron/eval/run.ts`: a second entry of the main Vite build (`dist-electron/eval.js`), so it imports only Electron-free modules.
 - `src/`: the React renderer, one bundle; `#/<route>` picks the screen.
 - `native-host/host.ts`, built by `vite.host.config.ts` (`npm run build:host`) to `out/native-host/host.js`.
@@ -166,7 +174,9 @@ Calls:
 - `review.tap(visitId, label: 'serves' | 'drifts')`
 - `review.answer(sessionId, 'yes' | 'not_yet' | 'unanswered')` (rejects while the session runs)
 - `history.list() → {id, intention, startedAt, endedAt, outcome}[]`, newest first (the History screen, [ADR-008](adr/ADR-008-awareness-over-accountability.md))
-- `privacy.get() → {modelCalls, modelId | null, modelStatus, tau | null, evalRanAt | null, dbPath}`
+- `privacy.get() → {modelCalls, coachTurns, modelId | null, modelStatus, tau | null, evalRanAt | null, dbPath}`
+- `coach.ask(sessionId, text) → {reply}`. Rejects while that session is running. A reply that fails the number check comes back as the fixed "could not answer" sentence, not the model's text.
+- `companion.notWork() → void`. Writes source `user`, label `drifts`, on the open attention visit, through the same path as `review.tap`. Rejects when no attention visit is open.
 - `privacy.dropMemory()`
 - `privacy.deleteFile()`
 - `permissions.get() → {screen, accessibility}` (macOS values from `systemPreferences`; `'granted'` elsewhere)
@@ -200,7 +210,7 @@ Main thread, `setInterval` 1000 ms.
 
 ### Harness
 
-Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](adr/ADR-002-harness-order.md); model stage per [ADR-005](adr/ADR-005-system-one-plus-slm.md).
+Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](adr/ADR-002-harness-order.md). Model stage per [ADR-011](adr/ADR-011-coach-companion-and-system-one.md): System One only. The coach waits until this queue is idle, and does not run during a session.
 
 Queued/in-flight work belongs to the current database generation. Delete and quit clear queued IDs and advance that generation. After inference, a stale result returns before acquiring Store or writing, so it cannot recreate a deleted DB or contaminate a replacement. End does not invalidate work: ended-session verdicts continue. A user tap made during inference wins because queue insertion does not overwrite an existing verdict. Learning contribution ownership and resets are defined in [data-model §2–4](data-model.md), justified in [ADR-010](adr/ADR-010-backend-work-ownership.md).
 
@@ -208,7 +218,7 @@ Queued/in-flight work belongs to the current database generation. Delete and qui
 2. **Memory.** `match_key` = URL hostname if a URL exists. Otherwise it is the lowercased `exec_name` (`app_name` on rows without one), unless the window is a known browser, in which case it is null and memory is skipped. Apply only when `tap_count ≥ 2` (BR-004). Source `memory`. `review.tap` computes the same key.
 3. **Model.**
    - While the runtime is `loading`, the queue waits (the visit shows "Judging…"). If the intention is empty, or the runtime ended `missing-file` or `failed:…`, store `unclear` with source `model` and `model_id` null (BR-003).
-   - S1 and S2 share one set of label definitions:
+   - System One uses these label definitions:
      ```ts
      const DEFINITIONS = {
        serves: 'Work on this task: the file, tool, reference page, or message for it',
@@ -218,17 +228,10 @@ Queued/in-flight work belongs to the current database generation. Delete and qui
      const question = `The person said they are working on: "${intention}". Is this window part of that work?`;
      const doc = `App: ${appName}\nTitle: ${title.slice(0, 200)}\nURL: ${url ?? 'none'}`;
      ```
-   - S1: `decisionContext.decide(doc, {label: {type: 'choice', instruction: question, criteria: DEFINITIONS}})`. Keep the criteria in this order (serves, drifts, unclear); reversing it cost 2 of 43 dev cases.
-   - S2 on a `LlamaChatSession` over the same model, with `chatWrapper: new QwenChatWrapper({variation: '3.5', thoughts: 'discourage'})`, `maxTokens: 80`, user message `${question}\n\n${doc}`, and a grammar with the reason first, so the label follows a written judgment:
-     ```ts
-     llama.createGrammarForJsonSchema({type: 'object', properties: {reason: {type: 'string', maxLength: 140}, label: {enum: ['serves', 'drifts', 'unclear']}}})
-     ```
-     System prompt: `You check whether one desktop window is part of the work a person said they are doing. Labels: serves = <DEFINITIONS.serves>. drifts = <DEFINITIONS.drifts>. unclear = <DEFINITIONS.unclear>. Judge only whether the window is used for that work, not whether the work is finished. Give a reason under 140 characters. Never repeat the window title or the URL in the reason.`
-     The auto-resolved wrapper opens a `<think>` segment that swallows the grammar's opening `{`, so `grammar.parse` throws (spike O1); `thoughts: 'discourage'` pre-fills an empty, closed thought.
-   - Why this wording (dev set, 43 authored Windows cases, `spike/tune.mjs`): the first wording ("plausibly used to do the intention" / "unrelated to the intention") made S1 answer `serves` on 43 of 43, and undefined labels made S2 read `serves` as "the work is finished" and answer `drifts` on 35 of 43. With the definitions and the intention in the question, S1 is right on 33/43 (15/15 drifts) and S2 on 34/43; the agreement rule asserts 38/43 at 0.82 precision, and 20 at 0.95 with `confidence ≥ 0.2`. Every wrong assertion had S1 `confidence` ≤ 0.31. The held-out O4 run sets τ; these numbers are not that result.
-   - Stored `label` = the S1 choice when S1 and S2 agree and the choice is not `unclear`; otherwise `unclear`.
-   - Stored `confidence` = S1 confidence. `reason` = S2 reason, cut to 140 chars, and set to null if it contains the title or URL text (data-model rule). `model_id` = `qwen3.5-2b-q4_k_m`. `model_stage` = `reason` if S2 ran, otherwise `decide`. `latency_ms` = S1 + S2.
-   - Budget: S1 and S2 together race a 10 s timeout. On timeout or error, store `unclear` with the error-free fields null. The abort signal is only checked between native evaluations, so a timed-out call can return a few seconds late (14.7 s observed against 10 s, spike O1).
+   - `decisionContext.decide(doc, {label: {type: 'choice', instruction: question, criteria: DEFINITIONS}})`. Keep the criteria in this order (serves, drifts, unclear); reversing it cost 2 of 43 dev cases.
+   - Why this wording (dev set, 43 authored Windows cases, `spike/tune.mjs`): the first wording ("plausibly used to do the intention" / "unrelated to the intention") made System One answer `serves` on 43 of 43. With these definitions and the intention in the question, it was right on 33/43 (15/15 drifts). The agreement-pass numbers that used to sit here (38/43, 0.82) described ADR-005. They are not this judge's result. Re-run the eval before quoting one.
+   - Stored `label` = the System One choice. Stored `confidence` = its confidence. `reason` = null. `model_id` = `qwen3.5-2b-q4_k_m`. `model_stage` = `decide`. `latency_ms` = that call.
+   - Budget: 10 s. On timeout or error, store `unclear` with the error-free fields null. The abort signal is only checked between native evaluations, so a timed-out call can return a few seconds late (14.7 s observed against 10 s, spike O1).
 4. Emit `verdict:updated`.
 
 **Display gate:** `shown` = `label` unless source is `model` and (`tau` is null or `confidence < tau`), in which case `shown` = `unclear`. The gate is applied when the review is read, so a new τ applies to past sessions.
@@ -236,7 +239,7 @@ Queued/in-flight work belongs to the current database generation. Delete and qui
 ### Runtime
 
 - `getLlama({gpu: 'auto', build: 'never'})`. Load `loadModel({modelPath})`, where `modelPath` is `process.resourcesPath/models/<file>` when packaged and `<repo>/models/<file>` otherwise. Never `resolveModelFile("hf:…")` at runtime.
-- Create `createDecisionContext({contextSize: {max: 1024}})`, plus `createContext({contextSize: 2048})` for S2. At launch, in the background, after the windows show: call `warmup()`, then run one throwaway S1 `decide()` and one S2 prompt on a fixed dummy window. `warmup()` alone does not cover the first choice `decide()`, which cost about 10 s cold on Vulkan (spike O1). Status turns `ready` only after the throwaway pair.
+- Create `createDecisionContext({contextSize: {max: 1024}})`, plus `createContext({contextSize: 2048})` for the coach. At launch, in the background, after the windows show: call `warmup()`, then one throwaway `decide()` on a fixed dummy window. `warmup()` alone does not cover the first choice `decide()`, which cost about 10 s cold on Vulkan (spike O1). Status turns `ready` only after that throwaway. The coach's first prompt pays its own cold start.
 - If `InsufficientMemoryError` is thrown, retry once with `gpu: false`.
 - Statuses: `loading | ready | missing-file | failed:<message>`. Start never waits on the runtime (US-001).
 - Load/warmup failure disposes the acquired native runtime before propagating failure. Quit stops capture, invalidates the queue, closes Store, and delays final exit until async runtime disposal finishes. Stopping during load waits for settlement and disposes the late-loaded instance without publishing a ready judge.
@@ -270,11 +273,27 @@ Queued/in-flight work belongs to the current database generation. Delete and qui
 
 ### Widgets
 
-- **Tray.** On Windows and macOS, a tray click toggles a 320×420 frameless popover positioned from `tray.getBounds()`. On Linux, `tray.setContextMenu` offers Open Ledger, End session, Show mini window, and Quit.
+- **Tray.** On Windows and macOS, a tray click toggles a 320×420 frameless popover positioned from `tray.getBounds()`. On Linux, `tray.setContextMenu` offers Open Twofold, End session, Show mini window, and Quit. The visible name is Twofold. The code that places the icon can still say ledger.
 - **Mini window.** A 280×72 frameless, `alwaysOnTop`, `skipTaskbar` window showing the intention, the clock, and an End button.
 - **macOS desktop widget.** A transparent `type:'desktop'` 280×72 window, bottom-right, display-only, shown while a session runs.
 - **Linux.** Main writes `widget.txt`: line 1 is the pango-escaped intention, line 2 is the start epoch in seconds. It is deleted at session end and on delete-file. `scripts/genmon-ledger.sh` prints `<txt>$intention · ${mins}m</txt>`, or `<txt>Ledger idle</txt>` when the file is absent.
-- Windows 10 gets only the mini window as its desktop layer.
+- Windows 10 gets the mini window and the companion as its desktop layer.
+
+### Coach
+
+Same loaded model, separate `LlamaChatSession`, `QwenChatWrapper({variation: '3.5', thoughts: 'discourage'})`, `maxTokens: 220`, 20 s timeout. `thoughts: 'discourage'` is the spike O1 fix for a `<think>` segment eating the reply.
+
+The data block is computed in code, then fenced. For the session just ended: intention, outcome, each visit's app, shown label, and source, block hits, away, and unrecorded time. For the local file: session count, yes count, not-yet count, time per shown label, and any app or site reached for on more than one session. History is empty on the first session. The prompt also receives `electron/ai/coach-corpus.json`. C9, C11, C12, and C13 are constraints, not advice. C21 may be used. C22's numbers may not. The user's text is inside a fence. Newlines in it are stripped. The prompt says never praise "yes" or scold "not yet", and never state a score, rate, streak, or hours headline.
+
+A suggestion is one of the ADR-012 buttons. "Block this" adds the target to `saved_target` with role `distraction`, and only when it is not already blocked and not on the work list. The suggestion does not repeat a window title.
+
+Before the reply is shown, every number in it has to appear in the computed figures or in a corpus claim labeled `verified`. If one does not, store and show "The coach could not answer from the record." Both turns go to `coach_turn`. Drop memory does not delete them. Delete file does, because it deletes the file. See [ADR-014](adr/ADR-014-coach-reads-the-local-record.md).
+
+### Companion
+
+A window about 96×96, `transparent`, `frame: false`, `alwaysOnTop`, `skipTaskbar`. Drag is pointer movement plus `setPosition`. Do not use `app-region: drag` on the pet: it swallows hover and click. A press that moves more than 4 px, or lasts more than 500 ms, is a drag. Otherwise it is a tap, and the window grows to the 320×420 popup beside the pet. Escape or a second tap on the pet shrinks it.
+
+While a session runs, the popup shows the intention, the clock, End, and "This isn't the work". That control calls `companion.notWork()`. The pet does not show the resulting label. While no session runs, the popup is `coach.ask` for the newest ended session. The sprite does not change with outcome or verdict. If the sprite is MEANT's tomato, the README says so. Do not import that app's companion code.
 
 ### No network
 
@@ -330,6 +349,6 @@ Queued/in-flight work belongs to the current database generation. Delete and qui
 - [`prd.md`](prd.md)
 - [`data-model.md`](data-model.md)
 - [`idea.md`](../idea.md)
-- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-005](adr/ADR-005-system-one-plus-slm.md)
+- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-005](adr/ADR-005-system-one-plus-slm.md), [ADR-011](adr/ADR-011-coach-companion-and-system-one.md), [ADR-012](adr/ADR-012-meant-loop-on-device.md), [ADR-013](adr/ADR-013-display-name-twofold.md), [ADR-014](adr/ADR-014-coach-reads-the-local-record.md)
 - Research: branch `research/ledger-stack`.
 - `quality.md`, `security.md`, and `api.md` are not in this doc set. See [`context.md`](../context.md).

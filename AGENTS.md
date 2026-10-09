@@ -1,6 +1,6 @@
-# Ledger — Agent guide
+# Twofold — Agent guide
 
-Ledger is a desktop session review that puts a stated intention next to the windows a person actually used, so they can notice the gap. The finish answer is stored and is not the goal. Judgment runs on the device. The window title never leaves the machine. It serves a self-employed person, working on their own laptop, who does not notice what a block was made of.
+Twofold is a desktop session review that puts a stated intention next to the windows a person actually used, so they can notice the gap. The name on screen is Twofold ([ADR-013](docs/adr/ADR-013-display-name-twofold.md)). Code, storage, IPC, and the native-host id stay `ledger`. Do not rename those to match the wordmark. The finish answer is stored and is not the goal. Judgment runs on the device. The window title never leaves the machine. It serves a self-employed person, working on their own laptop, who does not notice what a block was made of.
 
 Teammates need `/docs` and this file. Do not commit an `fmd/` folder.
 
