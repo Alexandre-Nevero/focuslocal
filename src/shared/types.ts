@@ -9,7 +9,7 @@ export type Outcome = "yes" | "not_yet" | "unanswered";
 export type VisitKind = "attention" | "away";
 
 /** Renderer routes (docs/design.md §2): one bundle, selected by URL hash `#/<route>`. */
-export type Route = "idle" | "declare" | "permissions" | "running" | `review/${string}` | "ledger" | "privacy" | "mini";
+export type Route = "idle" | "declare" | "permissions" | "running" | `review/${string}` | "history" | "privacy" | "mini";
 
 export type Session = {
     id: string,
@@ -64,7 +64,8 @@ export type Review = {
     unrecordedMs: number
 };
 
-export type LedgerRow = {
+/** One past session on the History screen (ADR-008: a row, not a score). */
+export type HistoryRow = {
     id: string,
     intention: string,
     startedAt: string,
@@ -112,8 +113,8 @@ export type LedgerApi = {
         tap(visitId: string, label: "serves" | "drifts"): Promise<void>,
         answer(sessionId: string, outcome: Outcome): Promise<void>
     },
-    ledger: {
-        list(): Promise<LedgerRow[]>
+    history: {
+        list(): Promise<HistoryRow[]>
     },
     privacy: {
         get(): Promise<Privacy>,
@@ -138,7 +139,7 @@ export type LedgerApi = {
 export const ledgerChannels = [
     "session.start", "session.end", "session.current",
     "review.get", "review.tap", "review.answer",
-    "ledger.list",
+    "history.list",
     "privacy.get", "privacy.dropMemory", "privacy.deleteFile",
     "permissions.get",
     "widgets.toggleMini",

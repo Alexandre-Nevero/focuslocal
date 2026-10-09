@@ -134,7 +134,7 @@ Layout of the `electron-typescript-react` template (Vite + `vite-plugin-electron
   - Windows: `%APPDATA%\Ledger`. macOS: `~/Library/Application Support/Ledger`. Linux: `${XDG_CONFIG_HOME:-~/.config}/Ledger`.
   - Main uses this function and not `app.getPath`, so the native host resolves the same path.
   - DB: `ledger.db`. Widget file: `widget.txt`.
-- `src/shared/types.ts`: `Label`, `Source`, `ModelStage`, `Route`, the row types (`Session`, `Visit`, `Verdict`, `ReviewVisit`, `Review`, `LedgerRow`, `Privacy`, `Permissions`) mirroring [`data-model.md`](data-model.md), and `LedgerApi` (the contract below). Imported by main, preload, and renderer.
+- `src/shared/types.ts`: `Label`, `Source`, `ModelStage`, `Route`, the row types (`Session`, `Visit`, `Verdict`, `ReviewVisit`, `Review`, `HistoryRow`, `Privacy`, `Permissions`) mirroring [`data-model.md`](data-model.md), and `LedgerApi` (the contract below). Imported by main, preload, and renderer.
 - `electron/store/db.ts`: opens `node:sqlite` `DatabaseSync` with `PRAGMA journal_mode=WAL; PRAGMA busy_timeout=2000; PRAGMA foreign_keys=ON`, then applies `electron/store/migrations/*.sql` (bundled with `import.meta.glob`) in filename order, recording them in `schema_migration(name)`.
 - `electron/index.ts`: entry, single-instance lock, network block, launch recovery.
 - `electron/windows.ts`: main window, tray + popover, mini window, hash routes.
@@ -164,7 +164,7 @@ Calls:
 - `review.get(sessionId) → {session, visits:(Visit & {verdict: Verdict | null, shown: Label | null})[], unrecordedMs}` (`verdict` and `shown` are null while Harness is judging the visit)
 - `review.tap(visitId, label: 'serves' | 'drifts')`
 - `review.answer(sessionId, 'yes' | 'not_yet' | 'unanswered')` (rejects while the session runs)
-- `ledger.list() → {id, intention, startedAt, endedAt, outcome}[]`, newest first
+- `history.list() → {id, intention, startedAt, endedAt, outcome}[]`, newest first (the History screen, [ADR-008](adr/ADR-008-awareness-over-accountability.md))
 - `privacy.get() → {modelCalls, modelId | null, modelStatus, tau | null, evalRanAt | null, dbPath}`
 - `privacy.dropMemory()`
 - `privacy.deleteFile()`
