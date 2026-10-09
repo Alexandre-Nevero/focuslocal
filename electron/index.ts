@@ -3,7 +3,7 @@ import {fileURLToPath} from "node:url";
 import {app, session} from "electron";
 import {registerIpc, recoverUnfinishedSession} from "./ipc.ts";
 import {ledgerDir} from "./paths.ts";
-import {createTray, openMain} from "./windows.ts";
+import {createAssistantWindow, createTray, destroyAssistantWindow, openMain} from "./windows.ts";
 import {startRuntime, stopRuntime} from "./ai/runtime.ts";
 import {discardJudgments, enqueueUnjudged} from "./harness/queue.ts";
 import {stopCapture} from "./capture/poller.ts";
@@ -19,6 +19,14 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL != null
 
 // Chromium's profile (caches, local storage) would otherwise share %APPDATA%\Ledger with ledger.db. Keep it in a subfolder.
 app.setPath("userData", path.join(ledgerDir(), "chromium"));
+
+// Lightweight runtime. The UI is flat paper: software compositing is enough, and on Linux GPU compositing
+// paints the transparent companion as a black, clipped square. No spare renderer is kept warm for windows that never open.
+if (process.platform === "linux") {
+    app.disableHardwareAcceleration();
+    app.commandLine.appendSwitch("enable-transparent-visuals");
+}
+app.commandLine.appendSwitch("disable-features", "SpareRendererForSitePerProcess,MediaRouter,CalculateNativeWinOcclusion");
 
 /**
  * No network client (BR-005, system-design §9): every request that is not a local file is cancelled.
@@ -51,6 +59,7 @@ else {
         if (stopping)
             return;
         stopping = true;
+        destroyAssistantWindow();
         stopCapture();
         discardJudgments();
         void stopRuntime().catch((err) => console.error("Model shutdown failed", err))
@@ -67,6 +76,7 @@ else {
         createTray();
         const recovered = recoverUnfinishedSession();
         enqueueUnjudged();
+        createAssistantWindow();
         openMain(recovered != null ? `review/${recovered}` : "idle");
         // After the windows show, so Start never waits on the model (US-001).
         void startRuntime();

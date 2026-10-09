@@ -29,7 +29,12 @@
     --tf-accent-strong: light-dark(#D8A464, #C99556);
     --tf-accent-text: light-dark(#8A4A0B, #F0B48F);
     --tf-highlight: #E4A33B;
-    --tf-brand-lower: light-dark(#8CA8C7, #9DB6D2);
+    /* Lower half of the slice. Darkened on light per request: toward the approved Dusty Blue text variant
+       (#4F6E8E) so the under part reads deeper on cream. Dark mode keeps the brighter brand blue. */
+    --tf-brand-lower: light-dark(#5E7FA3, #9DB6D2);
+    --tf-brand-lower-deep: light-dark(#45627F, #7E9ABA);
+    --tf-brand-upper-deep: light-dark(#2C2017, #FBF2E4);
+    --tf-brand-seam: color-mix(in srgb, var(--tf-accent) 70%, var(--tf-brand-lower));
     --tf-rule: light-dark(#DDC9B1, #43352A);
     --tf-control-edge: light-dark(#6F5744, #A8927A);
     --tf-track: light-dark(#EADCC8, #2F251D);
@@ -185,31 +190,62 @@ code {
     display: block;
 }
 
-/* Two-tone split at one height: umber above, Dusty Blue below. No gap at header size, so it never reads as a strike-through. */
+/* The slice: lowercase "twofold" cut once across the middle. Fraunces display gives it an authored,
+   editorial voice (the brand's human side); the optical/soft/wonk axes make it crafted, not system-default.
+   Top half warm umber, lower half the darker Dusty Blue, with a fine coral seam catching light at the cut.
+   Always one readable word, never a strike-through. */
 .wordmark-split {
-    --cut: 56%;
+    --cut: 54%;
+    --seam: 1px;
     position: relative;
     display: inline-block;
-    font: 860 1.625rem / 1 var(--ui);
-    letter-spacing: -0.04em;
+    font-family: var(--serif);
+    font-weight: 760;
+    font-size: 1.75rem;
+    font-optical-sizing: none;
+    font-variation-settings: "opsz" 144, "wght" 760, "SOFT" 28, "WONK" 1;
+    letter-spacing: -0.012em;
+    line-height: 1;
     color: var(--tf-ink);
     white-space: nowrap;
 }
 
 .wordmark-sm {
-    font-size: 1.25rem;
+    font-size: 1.3125rem;
+    font-variation-settings: "opsz" 72, "wght" 740, "SOFT" 22, "WONK" 1;
+    letter-spacing: -0.008em;
 }
 
+/* Top half: umber graded a touch darker toward the cut, so the slice edge reads as a lit crease. */
 .wm-top {
     display: block;
     clip-path: inset(0 0 calc(100% - var(--cut)) 0);
+    background: linear-gradient(180deg, var(--tf-ink) 42%, var(--tf-brand-upper-deep) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
+/* Lower half: darker Dusty Blue, deepening downward. The seam is a hair of coral set right at the cut. */
 .wm-bottom {
     position: absolute;
     inset: 0;
-    color: var(--tf-brand-lower);
     clip-path: inset(var(--cut) 0 0 0);
+    background: linear-gradient(
+        180deg,
+        var(--tf-brand-seam) 0,
+        var(--tf-brand-lower) var(--seam),
+        var(--tf-brand-lower) 55%,
+        var(--tf-brand-lower-deep) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+@supports not (background-clip: text) {
+    .wm-top { background: none; color: var(--tf-ink); }
+    .wm-bottom { background: none; color: var(--tf-brand-lower); }
 }
 
 
@@ -2576,4 +2612,259 @@ html[data-surface="mini"] body {
 
 .settings-details:not([open]) .card-title {
     margin-bottom: 0;
+}
+
+
+
+/* ---------- Assistant and Coach ---------- */
+
+html[data-surface="assistant"],
+html[data-surface="assistant"] body,
+html[data-surface="assistant"] #root {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    background: transparent;
+}
+
+html[data-surface="assistant"] body {
+    overflow: hidden;
+}
+
+.assistant-surface {
+    width: 100vw;
+    height: 100vh;
+    background: transparent;
+}
+
+.assistant-collapsed {
+    display: grid;
+    place-items: center;
+}
+
+.assistant-control {
+    display: grid;
+    place-items: center;
+    position: relative;
+    width: 88px;
+    height: 88px;
+    padding: 4px;
+    border: 0;
+    background: transparent;
+    cursor: grab;
+    touch-action: none;
+}
+
+/* A soft paper shadow on the desktop, so the pet sits on the screen instead of floating in it. */
+.assistant-control::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 7px;
+    width: 46px;
+    height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgb(59 45 34 / 0.28), rgb(59 45 34 / 0));
+    transform: translateX(-50%);
+    transition: transform 140ms var(--ease-out), opacity 140ms var(--ease-out);
+    pointer-events: none;
+}
+
+.assistant-control[data-state="hover"]::after {
+    transform: translateX(-50%) scale(0.86);
+    opacity: 0.7;
+}
+
+.assistant-control[data-state="dragging"]::after {
+    transform: translateX(-50%) scale(0.7);
+    opacity: 0.45;
+}
+
+.assistant-control:focus-visible {
+    outline: 2px solid var(--tf-accent-text);
+    outline-offset: -3px;
+    border-radius: 50%;
+}
+
+.assistant-control[data-state="dragging"] {
+    cursor: grabbing;
+}
+
+.assistant-figure {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 72px;
+    height: 72px;
+    transition: transform 140ms var(--ease-out);
+    transform-origin: 50% 92%;
+}
+
+.assistant-control[data-state="hover"] .assistant-figure {
+    transform: translateY(-4px);
+}
+
+.assistant-control[data-state="dragging"] .assistant-figure {
+    animation: none;
+    transform: rotate(-5deg) scale(1.04);
+}
+
+.assistant-figure img,
+.assistant-panel-mascot img,
+.assistant-figure svg,
+.assistant-panel-mascot svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.assistant-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+    overflow: hidden;
+    border-left: 1px solid var(--tf-rule);
+    background: var(--tf-surface);
+    box-shadow: -16px 0 36px -24px var(--tf-shade);
+}
+
+.assistant-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: none;
+    min-height: 3rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--tf-rule);
+}
+
+.assistant-panel-mascot {
+    display: block;
+    width: 48px;
+    height: 48px;
+}
+
+.assistant-close {
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+.assistant-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-top: 1.25rem;
+    overflow-y: auto;
+    animation: assistant-content-enter 180ms var(--ease-out) both;
+}
+
+@keyframes assistant-content-enter {
+    from {
+        opacity: 0;
+        transform: translateX(8px);
+    }
+}
+
+.coach-shell {
+    display: grid;
+    align-content: start;
+    gap: 1.25rem;
+}
+
+.coach-head {
+    display: grid;
+    gap: 0.125rem;
+}
+
+.coach-label,
+.coach-kicker {
+    color: var(--tf-ink-muted);
+    font-size: var(--step--2);
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.coach-title {
+    font-family: var(--serif);
+    font-size: var(--step-4);
+    font-weight: 620;
+    line-height: 1.05;
+}
+
+.coach-latest {
+    min-height: 5rem;
+    padding-block: 1rem;
+    border-block: 1px solid var(--tf-rule);
+}
+
+.coach-latest .status {
+    padding-block: 0.75rem;
+}
+
+.coach-state {
+    color: var(--tf-ink-muted);
+}
+
+.coach-intention {
+    margin-top: 0.35rem;
+    font-family: var(--serif);
+    font-size: var(--step-1);
+    font-weight: 600;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.coach-unavailable {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.coach-unavailable h2 {
+    font-size: var(--step-0);
+    font-weight: 650;
+}
+
+.coach-unavailable p {
+    color: var(--tf-ink-muted);
+    font-size: var(--step--1);
+}
+
+.running-assistant {
+    min-height: 0;
+    padding: 0;
+}
+
+.running-assistant .running-actions {
+    align-items: stretch;
+}
+
+.running-assistant .running-actions .btn {
+    width: 100%;
+}
+
+.running-not-work {
+    display: grid;
+    justify-items: start;
+    gap: 0.4rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .assistant-figure {
+        transition: none;
+        animation: none;
+    }
+
+    .assistant-control::after {
+        transition: none;
+    }
+
+    .assistant-control[data-state="hover"] .assistant-figure {
+        transform: none;
+    }
+
+    .assistant-content {
+        animation: none;
+    }
 }

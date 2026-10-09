@@ -1,0 +1,180 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 256 256"
+  aria-hidden="true"
+>
+  <defs>
+    <style>
+      .limb {
+        fill: none;
+        stroke: #3B2D22;
+        stroke-width: 9;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .feature {
+        fill: none;
+        stroke: #3B2D22;
+        stroke-width: 5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .ink { fill: #3B2D22; }
+      .cream { fill: #F7EFE2; }
+      .tan { fill: #D8A464; }
+      .ochre { fill: #E4A33B; }
+      .sage { fill: #9CA98A; }
+      .dusty-blue { fill: #8CA8C7; }
+      .coral { fill: #E89B7D; }
+      .lavender { fill: #C9C3E6; }
+      .butter { fill: #F5D884; }
+    </style>
+
+    <!-- A flat offset replaces the previous blur-heavy shadow. -->
+    <g id="paper-stack">
+      <path
+        d="M45 80c0-18 14-32 32-32h99c18 0 32 14 32 32v88c0 18-14 32-32 32H72c-15 0-27-12-27-27V80Z"
+        fill="#3B2D22"
+        opacity="0.10"
+      />
+      <path
+        d="M67 51c0-16 13-29 29-29h78c17 0 30 13 30 30v119c0 17-13 30-30 30H94c-15 0-27-12-27-27V51Z"
+        fill="#D8A464"
+        stroke="#E4A33B"
+        stroke-width="3"
+      />
+      <path
+        d="M41 76c0-17 14-31 31-31h101c18 0 33 15 33 33v89c0 18-15 33-33 33H68c-15 0-27-12-27-27V76Z"
+        fill="#F7EFE2"
+        stroke="#D8A464"
+        stroke-width="4"
+      />
+      <path
+        d="M58 68c18-8 43-11 72-11"
+        fill="none"
+        stroke="#FFFFFF"
+        stroke-width="4"
+        stroke-linecap="round"
+        opacity="0.34"
+      />
+    </g>
+
+    <g id="legs-rest">
+      <path class="limb" d="M98 194v27M158 194v27" />
+      <ellipse class="ink" cx="94" cy="225" rx="18" ry="9" />
+      <ellipse class="ink" cx="163" cy="225" rx="18" ry="9" />
+    </g>
+
+    <g id="legs-braced">
+      <path class="limb" d="m101 194-8 27M155 194l10 27" />
+      <ellipse class="ink" cx="88" cy="225" rx="18" ry="9" />
+      <ellipse class="ink" cx="170" cy="225" rx="18" ry="9" />
+    </g>
+
+    <g id="arms-rest">
+      <path class="limb" d="M44 123c-16 10-19 27-9 41M203 123c16 10 19 27 9 41" />
+      <circle class="ink" cx="32" cy="168" r="10" />
+      <circle class="ink" cx="215" cy="168" r="10" />
+    </g>
+
+    <g id="arms-open">
+      <path class="limb" d="m44 128-26-16M203 128l27-17" />
+      <circle class="ink" cx="15" cy="110" r="10" />
+      <circle class="ink" cx="233" cy="109" r="10" />
+    </g>
+
+    <g id="arms-gripping">
+      <path class="limb" d="m44 132 50 31M203 132l-43 31" />
+      <circle class="ink" cx="96" cy="164" r="11" />
+      <circle class="ink" cx="158" cy="164" r="11" />
+    </g>
+
+    <g id="face-neutral">
+      <ellipse class="ink" cx="106" cy="111" rx="7" ry="13" />
+      <ellipse class="ink" cx="151" cy="111" rx="7" ry="13" />
+    </g>
+
+    <g id="face-attentive">
+      <ellipse class="ink" cx="105" cy="111" rx="7" ry="13" />
+      <ellipse class="ink" cx="151" cy="111" rx="7" ry="13" />
+      <path class="feature" d="M117 143c7 4 15 4 22 0" />
+    </g>
+
+    <g id="face-focused">
+      <path class="feature" d="m97 105 17 5M158 105l-17 5" />
+      <ellipse class="ink" cx="107" cy="116" rx="6" ry="10" />
+      <ellipse class="ink" cx="149" cy="116" rx="6" ry="10" />
+      <path class="feature" d="M121 145h15" />
+    </g>
+
+    <g id="coach-card">
+      <rect
+        x="82"
+        y="139"
+        width="91"
+        height="61"
+        rx="10"
+        fill="#F5D884"
+        stroke="#D8A464"
+        stroke-width="4"
+      />
+      <rect x="110" y="132" width="35" height="12" rx="6" class="dusty-blue" />
+      <path
+        d="M101 160h53M101 176h38"
+        fill="none"
+        stroke="#3B2D22"
+        stroke-width="4"
+        stroke-linecap="round"
+        opacity="0.72"
+      />
+    </g>
+  </defs>
+
+  <symbol id="mascot-face" viewBox="0 0 64 64">
+    <circle cx="32" cy="32" r="28" fill="#F7EFE2" stroke="#D8A464" stroke-width="5" />
+    <ellipse cx="23" cy="31" rx="3.5" ry="6" fill="#3B2D22" />
+    <ellipse cx="41" cy="31" rx="3.5" ry="6" fill="#3B2D22" />
+  </symbol>
+
+  <!-- Runtime states are behavior-neutral and contain no internal motion. -->
+  <symbol id="pose-idle" viewBox="0 0 256 256">
+    <use href="#legs-rest" />
+    <use href="#arms-rest" />
+    <use href="#paper-stack" />
+    <use href="#face-neutral" />
+  </symbol>
+
+  <symbol id="pose-hover" viewBox="0 0 256 256">
+    <use href="#legs-rest" />
+    <use href="#arms-open" />
+    <use href="#paper-stack" />
+    <use href="#face-attentive" />
+  </symbol>
+
+  <symbol id="pose-dragging" viewBox="0 0 256 256">
+    <use href="#legs-braced" />
+    <use href="#arms-gripping" />
+    <use href="#paper-stack" />
+    <use href="#face-focused" />
+    <path
+      d="M76 167c10 5 20 7 30 7M148 174c10 0 20-2 30-7"
+      fill="none"
+      stroke="#E89B7D"
+      stroke-width="4"
+      stroke-linecap="round"
+      opacity="0.72"
+    />
+  </symbol>
+
+  <symbol id="pose-coach" viewBox="0 0 256 256">
+    <use href="#legs-rest" />
+    <use href="#arms-gripping" />
+    <use href="#paper-stack" />
+    <use href="#face-attentive" />
+    <use href="#coach-card" />
+    <circle class="lavender" cx="190" cy="74" r="8" />
+    <circle class="sage" cx="211" cy="57" r="5" />
+  </symbol>
+</svg>

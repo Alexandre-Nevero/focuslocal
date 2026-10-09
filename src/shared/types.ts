@@ -7,13 +7,15 @@ export type ModelStage = "decide" | "reason";
 export type Role = "work" | "distraction";
 export type Outcome = "yes" | "not_yet" | "unanswered";
 export type VisitKind = "attention" | "away";
+export type AssistantVisualState = "idle" | "hover" | "dragging" | "expanded";
+export type AssistantWindowState = {expanded: boolean};
 
 /** Calendar scope of the Dashboard (docs/design.md §5.2). */
 export type PeriodMode = "day" | "week" | "month";
 
 /** Renderer routes (docs/design.md §4.1): one bundle, selected by URL hash `#/<route>`. Dates are local `YYYY-MM-DD`. */
 export type Route =
-    | "idle" | "declare" | "permissions" | "running" | `review/${string}` | "history" | "privacy" | "mini"
+    | "idle" | "declare" | "permissions" | "running" | "assistant" | `review/${string}` | "history" | "privacy" | "mini"
     | "dashboard" | `dashboard/${PeriodMode}/${string}`
     | "ledger" | `ledger/${string}`;
 
@@ -99,12 +101,13 @@ export type Permissions = {
 
 export type CaptureState = "ok" | "failing" | "denied";
 
-/** Events main pushes to every window. */
+/** Events main pushes to renderer windows. */
 export type LedgerEvents = {
     "verdict:updated": {visitId: string},
     "capture:status": {state: CaptureState},
     /** A session started or ended anywhere (popover, mini window, extension): re-read session.current(). */
-    "session:changed": {sessionId: string | null}
+    "session:changed": {sessionId: string | null},
+    "assistant:state": AssistantWindowState
 };
 
 /** `window.ledger`, exposed by electron/preload.ts. Every call rejects with an Error on failure; render that, never fake data. */
@@ -132,6 +135,12 @@ export type LedgerApi = {
     },
     widgets: {
         toggleMini(): Promise<void>
+    },
+    assistant: {
+        move(dx: number, dy: number): void,
+        toggle(): Promise<AssistantWindowState>,
+        collapse(): Promise<AssistantWindowState>,
+        state(): Promise<AssistantWindowState>
     },
     windows: {
         /** Shows the main window at a route (the popover and mini window are too small for review, ledger, privacy). */

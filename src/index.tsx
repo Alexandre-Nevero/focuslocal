@@ -1,4 +1,4 @@
-import React from "react";
+import React, {Suspense} from "react";
 import ReactDOM from "react-dom/client";
 import "@fontsource-variable/fraunces";
 import "@fontsource-variable/public-sans";
@@ -14,6 +14,8 @@ applyTheme(readTheme());
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-        <App />
+        <Suspense fallback={null}>
+            <App />
+        </Suspense>
     </React.StrictMode>
 );

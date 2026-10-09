@@ -1,16 +1,19 @@
-import {useEffect, useState, type ReactNode} from "react";
+import {lazy, useEffect, useLayoutEffect, useState, type ReactNode} from "react";
 import {ErrorNote, Page} from "./components.tsx";
 import {ledger, useLoad} from "./ledger.ts";
-import {Dashboard} from "./screens/Dashboard.tsx";
-import {Declare} from "./screens/Declare.tsx";
-import {History} from "./screens/History.tsx";
+import {Assistant} from "./companion/Companion.tsx";
 import {Idle} from "./screens/Idle.tsx";
-import {Ledger} from "./screens/Ledger.tsx";
-import {Mini} from "./screens/Mini.tsx";
-import {Permissions} from "./screens/Permissions.tsx";
-import {Privacy} from "./screens/Privacy.tsx";
-import {Review} from "./screens/Review.tsx";
 import {Running} from "./screens/Running.tsx";
+
+// Each window loads only the screens it routes to. The companion renderer never parses the dashboard or review code.
+const Dashboard = lazy(() => import("./screens/Dashboard.tsx").then((m) => ({default: m.Dashboard})));
+const Declare = lazy(() => import("./screens/Declare.tsx").then((m) => ({default: m.Declare})));
+const History = lazy(() => import("./screens/History.tsx").then((m) => ({default: m.History})));
+const Ledger = lazy(() => import("./screens/Ledger.tsx").then((m) => ({default: m.Ledger})));
+const Mini = lazy(() => import("./screens/Mini.tsx").then((m) => ({default: m.Mini})));
+const Permissions = lazy(() => import("./screens/Permissions.tsx").then((m) => ({default: m.Permissions})));
+const Privacy = lazy(() => import("./screens/Privacy.tsx").then((m) => ({default: m.Privacy})));
+const Review = lazy(() => import("./screens/Review.tsx").then((m) => ({default: m.Review})));
 
 // Routes and their screens: docs/design.md §4.1. Data: window.ledger (src/shared/types.ts LedgerApi) and nothing else.
 
@@ -44,9 +47,18 @@ export function App() {
     const [name = "idle", param, extra] = route.split("/");
     const [session] = useLoad(() => ledger.session.current(), [], ["session:changed"]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         document.documentElement.dataset["surface"] = name || "idle";
     }, [name]);
+
+    if (name === "assistant")
+        return (
+            <Assistant
+                session={session.state === "ready" ? session.value : null}
+                loading={session.state === "loading"}
+                error={session.state === "error" ? session.error : null}
+            />
+        );
 
     if (name === "mini")
         return <Mini session={session} />;

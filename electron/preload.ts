@@ -11,6 +11,12 @@ const ledger: LedgerApi = {
     privacy: {get: call("privacy.get"), dropMemory: call("privacy.dropMemory"), deleteFile: call("privacy.deleteFile")},
     permissions: {get: call("permissions.get")},
     widgets: {toggleMini: call("widgets.toggleMini")},
+    assistant: {
+        move: (dx, dy) => ipcRenderer.send("assistant.move", dx, dy),
+        toggle: call("assistant.toggle"),
+        collapse: call("assistant.collapse"),
+        state: call("assistant.state")
+    },
     windows: {open: call("windows.open")},
     on(event, listener) {
         const channel = `ledger:${event}`;
