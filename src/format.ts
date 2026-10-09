@@ -1,4 +1,4 @@
-import type {Outcome, Source} from "./shared/types.ts";
+import type {ModelStatus, Outcome, Source} from "./shared/types.ts";
 
 // Counts are words (US-007, BR-006). No formatter here produces a percent, a rate, or an hours headline.
 const WORDS = [
@@ -30,6 +30,16 @@ export function duration(ms: number) {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
     return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+/** A total in a figure column: exact zero stays "0 min" so it is not read as "a little". */
+export function minutes(ms: number) {
+    if (ms <= 0)
+        return "0 min";
+    if (ms < 60_000)
+        return "<1 min";
+
+    return duration(ms);
 }
 
 /** Elapsed time of the open session, for the clock only. */
@@ -83,4 +93,20 @@ export function host(url: string | null) {
     } catch {
         return null;
     }
+}
+
+
+/** The on-device model's state in everyday words, for the status pill and Settings. */
+export function modelStatusWord(status: ModelStatus) {
+    if (status === "ready")
+        return "Ready";
+    if (status === "loading")
+        return "Getting ready";
+
+    return "Not available";
+}
+
+/** A measured model latency: milliseconds under a second, seconds with one decimal above. */
+export function latency(ms: number) {
+    return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
 }

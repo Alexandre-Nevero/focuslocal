@@ -19,7 +19,7 @@ export function Permissions() {
 
     return (
         <main className="permissions">
-            <h1 className="screen-title">Ledger needs to see which window is in front.</h1>
+            <h1 className="screen-title">Twofold needs to see which window is in front.</h1>
             <p className="lede">
                 It reads the frontmost app, its title, and the address when a browser shares it, and writes them only to a file on
                 this machine. Without the permission nothing is recorded, and the review names that gap instead of guessing.
@@ -41,7 +41,8 @@ export function Permissions() {
 
             {!allGranted && (
                 <p className="hint">
-                    On a Mac: open System Settings, then Privacy &amp; Security. Turn Ledger on under Screen Recording and under
+                    On a Mac: open System Settings, then Privacy &amp; Security. Turn on Twofold (listed as Ledger) under
+                    Screen Recording and under
                     Accessibility, then come back here.
                 </p>
             )}

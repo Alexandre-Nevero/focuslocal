@@ -8,8 +8,14 @@ export type Role = "work" | "distraction";
 export type Outcome = "yes" | "not_yet" | "unanswered";
 export type VisitKind = "attention" | "away";
 
-/** Renderer routes (docs/design.md §2): one bundle, selected by URL hash `#/<route>`. */
-export type Route = "idle" | "declare" | "permissions" | "running" | `review/${string}` | "history" | "privacy" | "mini";
+/** Calendar scope of the Dashboard (docs/design.md §5.2). */
+export type PeriodMode = "day" | "week" | "month";
+
+/** Renderer routes (docs/design.md §4.1): one bundle, selected by URL hash `#/<route>`. Dates are local `YYYY-MM-DD`. */
+export type Route =
+    | "idle" | "declare" | "permissions" | "running" | `review/${string}` | "history" | "privacy" | "mini"
+    | "dashboard" | `dashboard/${PeriodMode}/${string}`
+    | "ledger" | `ledger/${string}`;
 
 export type Session = {
     id: string,

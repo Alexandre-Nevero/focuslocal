@@ -6,7 +6,7 @@ import type {HistoryRow, Review} from "../shared/types.ts";
 
 type Entry = {row: HistoryRow, apps: string[] | null};
 
-/** The apps a block was mostly made of, longest first. */
+/** The apps a session was mostly made of, longest first. */
 function topApps(review: Review) {
     const totals = new Map<string, number>();
     for (const visit of review.visits) {
@@ -34,7 +34,7 @@ async function readHistory(): Promise<Entry[]> {
 }
 
 /**
- * Past blocks as rows (US-007). An app that keeps coming back is the same chip down the column; pointing at one
+ * Past sessions as rows (US-007). An app that keeps coming back is the same chip down the column; pointing at one
  * lights it in every row. The screen never says what the repetition means.
  */
 export function History() {
@@ -42,18 +42,18 @@ export function History() {
     const [hot, setHot] = useState<string | null>(null);
 
     return (
-        <Page current="history">
+        <Page current="ledger">
             <header className="screen-head">
-                <h1 className="screen-title">Past blocks</h1>
-                {load.state === "ready" && load.value.length > 0 && <p className="quiet">{capital(counted(load.value.length, "block"))}.</p>}
+                <h1 className="screen-title">All sessions</h1>
+                {load.state === "ready" && load.value.length > 0 && <p className="quiet">{capital(counted(load.value.length, "session"))}.</p>}
             </header>
 
             {load.state === "loading" && <p className="status">Reading the local file…</p>}
-            {load.state === "error" && <ErrorNote title="The local file could not be read." error={load.error}>No blocks are shown in its place.</ErrorNote>}
+            {load.state === "error" && <ErrorNote title="The local file could not be read." error={load.error}>No sessions are shown in its place.</ErrorNote>}
             {load.state === "ready" && load.value.length === 0 && (
                 <div className="empty">
-                    <p>No blocks yet. A block shows up here once it ends.</p>
-                    <button type="button" className="btn btn-primary" onClick={() => go("declare")}>Start a block</button>
+                    <p>No sessions yet. A session shows up here once it ends.</p>
+                    <button type="button" className="btn btn-primary" onClick={() => go("declare")}>Start a session</button>
                 </div>
             )}
             {load.state === "ready" && load.value.length > 0 && (

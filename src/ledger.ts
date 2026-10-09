@@ -1,5 +1,5 @@
 import {useEffect, useState} from "react";
-import type {CaptureState, LedgerApi, LedgerEvents, Route} from "./shared/types.ts";
+import type {CaptureState, LedgerApi, LedgerEvents, Review, Route} from "./shared/types.ts";
 
 /** The renderer's only door to main (electron/preload.ts). Nothing else is used for data. */
 export const ledger = (window as unknown as {ledger: LedgerApi}).ledger;
@@ -68,4 +68,20 @@ export function useCaptureState() {
     const [state, setState] = useState<CaptureState>("ok");
     useEffect(() => ledger.on("capture:status", ({state: next}) => setState(next)), []);
     return state;
+}
+
+
+/**
+ * Reviews for a bounded set of sessions (one period or one day). A session whose review fails to read maps to null,
+ * so one bad row is named as unreadable instead of hiding the rest.
+ */
+export async function readReviews(ids: string[]): Promise<Map<string, Review | null>> {
+    const entries = await Promise.all(ids.map(async (id): Promise<[string, Review | null]> => {
+        try {
+            return [id, await ledger.review.get(id)];
+        } catch {
+            return [id, null];
+        }
+    }));
+    return new Map(entries);
 }

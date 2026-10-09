@@ -14,11 +14,13 @@ export function variantOf(visit: ReviewVisit): Variant {
     return visit.shown ?? "judging";
 }
 
+export const traceOrder: readonly Variant[] = ["serves", "drifts", "unclear", "judging", "away", "unrecorded"];
+
 export const variantWord: Record<Variant, string> = {
-    serves: "Serves",
-    drifts: "Drifts",
+    serves: "Served",
+    drifts: "Drifted",
     unclear: "Unclear",
-    judging: "Judging",
+    judging: "Labelling…",
     away: "Away",
     unrecorded: "Not recorded"
 };
