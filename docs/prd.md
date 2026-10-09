@@ -101,7 +101,10 @@ Story priority is Must or Should. A Won't feature has no story. No story is stri
 **US-006 — Skip a remembered window** *(F-005)* — Priority: Must
 > As a **Worker**, I want a repeated label to stick, so that the model is not asked again about a window I have already settled.
 
-- Given I have tapped the same app or site on more than one visit, when a later visit matches it, then the verdict source is memory and the model call count does not increase.
+- Given two distinct visits have been tapped with the same label for an app or site and no later conflict or forget occurred, when a later visit matches it without a rule match, then the verdict source is memory and the model call count does not increase.
+- Given only one visit supports a key, when I repeat its same-label tap, then it still supplies only one contribution and a later visit is not labeled by memory.
+- Given a key has remembered support, when I tap a conflicting label, then that visit uses my new label, earlier visits keep their historical labels, and a later visit does not use memory until another distinct visit supports the new label.
+- Given support was reset by a conflict or forgotten, when I tap two previously used distinct visits with the same label again, then a later matching residual visit uses memory.
 
 **US-007 — See the pattern as rows** *(F-006)* — Priority: Should
 > As a **Worker**, I want past sessions listed, so that a repetition can be noticed after it has happened more than once.
@@ -114,8 +117,11 @@ Story priority is Must or Should. A Won't feature has no story. No story is stri
 > As a **Worker**, I want to see what the app ran and where the file is, so that I can check the privacy claim.
 
 - Given any session history, when I open the privacy panel, then it shows the count of verdicts whose source is model, the model id or the fact that none is configured, and a statement that this build has no network client.
-- Given I drop memory, when the panel confirms, then memory rows are gone and past visits keep the verdicts they already have.
-- Given I delete the local file, when the panel confirms, then the next launch has no sessions.
+- Given I drop memory, when the panel confirms, then memory rows are gone and past visits keep their verdict labels; tapping the same distinct visits again can teach memory.
+- Given a judgment is pending, when I delete the local file successfully, then sessions and the file are gone, and a late model result cannot recreate them or write into a replacement Store.
+- Given file deletion is retrying a transient lock, when another data operation is requested, then it rejects until deletion finishes; duplicate delete requests share the same operation.
+- Given the file remains locked after the deletion attempts, when deletion fails, then the operation reports "Delete failed, file still present" rather than confirming success, and other data operations are available again.
+- Given I end a session while judgment is pending without deleting its data, when the judgment finishes, then the ended session's review receives the verdict.
 
 The panel does not measure packets. A judge who wants byte counts uses a monitor outside the app. The panel will not notice a dependency that phones home.
 
@@ -129,6 +135,7 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 > As a **Worker**, I want the review to name time it did not capture, so that a short trace is not described as the whole block.
 
 - Given the session's wall clock is longer than the sum of visit intervals, when the review opens, then it states the unrecorded duration and does not assign that duration to a window.
+- Given a sleep or capture-failure gap has closed the last visit, when the next captured tick reports idle or locked, then the new away visit starts at that tick, and the gap remains unrecorded rather than becoming away time.
 
 ### 4.1 Cross-cutting rules (`BR-###`)
 
@@ -144,7 +151,7 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 
 ## 5. App Flow & UX Intent
 
-**Design reference:** [`design.md`](design.md). Visual stack: Electron with React through electron-vite ([ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md)).
+**Design reference:** [`design.md`](design.md). Visual stack: Electron with React through Vite + `vite-plugin-electron` ([ADR-006](adr/ADR-006-template-vite-build.md)). This inventory describes required product screens, not their implementation status; see the README for what runs today.
 
 ### 5.1 Screen Inventory
 
@@ -241,9 +248,9 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 
 - Which app shell and which model runtime. Resolved: Electron 44 + TypeScript + React (Vite + `vite-plugin-electron`), with node-llama-cpp running Qwen3.5-2B locally. See [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md) and [ADR-006](adr/ADR-006-template-vite-build.md).
 - How the active browser URL is read, and on which browsers. Resolved: Windows (x-win UIA), macOS (x-win AppleScript), Linux (Chromium MV3 native messaging extension relay). See [ADR-004](adr/ADR-004-three-os-and-three-frontends.md).
-- The smallest tap count above one before memory applies. `[assumption]` more than one, as BR-004 states, with no higher floor. A higher floor waits on F-008, not on a guessed constant.
+- Memory's minimum support is two distinct visits for the current label, with no higher floor. Conflict and forget release contributions so visits can reteach (US-006; [ADR-010](adr/ADR-010-backend-work-ownership.md)).
 - Whether old window titles are kept until the user deletes the file. `[assumption]` kept, because US-004 on a past session needs them. Revisit if the file grows past what the demo machine tolerates. No size number exists yet.
-- The 0.80 bar is carried from the prior project. Whether this model can meet it is what F-008 measures. Until a run exists, the review treats model labels as unclear when they would be asserted below that bar.
+- Residual-model accuracy remains a risk. F-008 has an authored evaluation run, including probe overlap, not blind independent validation; provenance and results live in [system-design §9](system-design.md#τ-eval). The display gate uses the precision bar owned by [`idea.md` §9](../idea.md), never a second target here.
 
 ## 8. Doc Integrity Check
 
@@ -255,7 +262,7 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 - [x] Each `BR-###` is invoked by at least two stories.
 - [x] Every screen in §5.1 appears in the §5.2 flow, and names its states.
 - [x] Metrics, routes, and the 0.80 bar are links to their owners, not a second copy of the target.
-- [x] The load-bearing assumption is the residual-model accuracy in §7, which F-008 has not run.
+- [x] Residual-model accuracy remains the load-bearing risk in §7; the authored F-008 run and its limitations are linked to their owner.
 
 ## References
 

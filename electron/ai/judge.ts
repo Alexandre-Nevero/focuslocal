@@ -77,9 +77,14 @@ export async function loadJudge(modelPath: string): Promise<Judge> {
             throw err;
         judge = await load(modelPath, false);
     }
-    await judge.decision.warmup();
-    await judgeWindow(judge, "sort the downloads folder", {appName: "File Explorer", title: "Downloads", url: null});
-    return judge;
+    try {
+        await judge.decision.warmup();
+        await judgeWindow(judge, "sort the downloads folder", {appName: "File Explorer", title: "Downloads", url: null});
+        return judge;
+    } catch (err) {
+        await judge.llama.dispose();
+        throw err;
+    }
 }
 
 const question = (intention: string) => `The person said they are working on: "${intention}". Is this window part of that work?`;

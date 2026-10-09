@@ -108,7 +108,8 @@ function tick() {
         if (open?.kind === "away")
             touch(now);
         else {
-            const awaySince = now - (idle >= AWAY_S ? idle * 1000 : 0);
+            // Backdate only an observed visit; never fill a sleep or capture-failure gap.
+            const awaySince = now - (open != null && idle >= AWAY_S ? idle * 1000 : 0);
             closeVisit(awaySince);
             open = openVisit(awaySince, "away", "", {name: "Away", exec: null, title: null, url: null});
         }

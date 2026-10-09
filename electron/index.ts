@@ -5,7 +5,9 @@ import {registerIpc, recoverUnfinishedSession} from "./ipc.ts";
 import {ledgerDir} from "./paths.ts";
 import {createTray, openMain} from "./windows.ts";
 import {startRuntime, stopRuntime} from "./ai/runtime.ts";
-import {enqueueUnjudged} from "./harness/queue.ts";
+import {discardJudgments, enqueueUnjudged} from "./harness/queue.ts";
+import {stopCapture} from "./capture/poller.ts";
+import {closeDb} from "./store/db.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -40,7 +42,24 @@ else {
 
     // Ledger lives in the tray: closing every window does not quit it. Quit is in the tray's right-click menu.
     app.on("window-all-closed", () => {});
-    app.on("will-quit", () => void stopRuntime());
+    let stopping = false;
+    let stopped = false;
+    app.on("will-quit", (event) => {
+        if (stopped)
+            return;
+        event.preventDefault();
+        if (stopping)
+            return;
+        stopping = true;
+        stopCapture();
+        discardJudgments();
+        void stopRuntime().catch((err) => console.error("Model shutdown failed", err))
+            .finally(() => {
+                closeDb();
+                stopped = true;
+                app.quit();
+            });
+    });
 
     void app.whenReady().then(() => {
         blockNetwork();

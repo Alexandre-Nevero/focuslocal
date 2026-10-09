@@ -29,7 +29,8 @@
     },
     "include": [
         "./src",
-        "./electron"
+        "./electron",
+        "./native-host"
     ],
     "references": [{ "path": "./tsconfig.node.json" }]
 }

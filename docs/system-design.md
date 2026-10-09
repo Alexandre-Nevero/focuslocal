@@ -76,6 +76,7 @@ Titles and URLs cross from the OS or the extension into Store and stop. The mode
 | Electron 44 + TypeScript + React (Vite + `vite-plugin-electron`, from the node-llama-cpp template), node-llama-cpp 3.22 in main, Qwen3.5-2B Q4_K_M from a local path | One codebase on Windows 10, macOS, and Linux Mint with no Rust toolchain; the runtime is in process, not a localhost server | Larger app; a 1.28 GB model file to fetch at setup | Tauri (Rust + MSVC, WebKitGTK); Ollama and llama-server (localhost HTTP); Phi Silica (Windows 11 only); Apple FoundationModels (second runtime); electron-vite (ADR-006) | [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-006](adr/ADR-006-template-vite-build.md), Bennett |
 | Three OSes, three frontends: desktop app, widgets, Chromium MV3 extension with a stdio native host writing the same SQLite file; main process is the backend over IPC | The sketch maps onto one app with no localhost API; Linux gets a URL only through the extension | Native host to install per browser; Firefox and Safari have no extension | Localhost HTTP backend; WidgetKit (needs a Team ID) | [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), Bennett |
 | Model stage = System One `decide()` + a JSON-grammar SLM pass on the same model, gated by τ | One model, one runtime; agreement plus τ limits what is asserted | Two passes per residual visit | Laya, Kev, GLiNER, Jev, embedding filter | [ADR-005](adr/ADR-005-system-one-plus-slm.md), Bennett |
+| Backend work belongs to a Store generation; learning votes belong to current memory support, not lifetime tap history | Delete/quit must invalidate late work; conflict/forget must allow reteaching without erasing history | Pending judgments are discarded on delete/quit; old unidentifiable support is reset by migration | Let late work reopen any Store; lifetime visit deduplication or a permanent tap ledger | [ADR-010](adr/ADR-010-backend-work-ownership.md), Bennett |
 
 The probe, so it is not mistaken for a budget. On 2026-10-09, `SystemLanguageModel` on an M4, 16 GB, macOS 26.5, answered in 3.89 seconds cold and about 0.2 seconds warm, and was wrong on 2 of 4 windows. n=4. One machine. Not a latency target and not a precision result.
 
@@ -93,7 +94,7 @@ The probe, so it is not mistaken for a budget. On 2026-10-09, `SystemLanguageMod
 ## 6. Deployment Topology
 
 - One process on the user's computer. No server, no staging environment, no shared database between teammates.
-- Windows and Linux run from source. macOS ships as an ad-hoc-signed `Ledger.app` built on the pitch Mac (ADR-004).
+- This cycle runs Windows from source. macOS/Linux delivery and native-host installation are deferred under [ADR-007](adr/ADR-007-windows-first.md); the cross-platform design below is not a delivery claim.
 - Supported matrix. Latencies are **estimates** scaled from llama.cpp benchmarks; the smoke spikes replace them with measurements.
 
 | Tier | Spec | Est. S1 decide | Est. S1 + S2 per residual visit |
@@ -147,11 +148,11 @@ Layout of the `electron-typescript-react` template (Vite + `vite-plugin-electron
 - `src/`: the React renderer, one bundle; `#/<route>` picks the screen.
 - `native-host/host.ts`, built by `vite.host.config.ts` (`npm run build:host`) to `out/native-host/host.js`.
 - `extension/{manifest.json,background.js,popup.html,popup.js}`.
-- `scripts/fetch-model.mjs` (runs on `postinstall`), `scripts/install-native-host.mjs`, `scripts/genmon-ledger.sh`.
+- `scripts/fetch-model.mjs` (runs on `postinstall`), `scripts/install-native-host.mjs`, `scripts/check-native-host.mjs`.
 - `eval/fixtures.json`.
 - `models/`, gitignored.
 
-Scripts: `npm run dev` (Vite dev server + Electron), `npm start` (build, then run the built app), `npm run build` (installer via electron-builder), `npm run eval [fixtures.json]` (build, then `scripts/eval.mjs` runs `dist-electron/eval.js` under the Electron binary with `ELECTRON_RUN_AS_NODE=1`), `npm test` (`node --test`, rules and memory key), `npm run typecheck`, `npm run lint`.
+Scripts: `npm run dev` (Vite dev server + Electron), `npm start` (build, then run the built app), `npm run build` (installer via electron-builder), `npm run build:host` (native relay), `npm run eval [fixtures.json]` (build, then `scripts/eval.mjs` runs `dist-electron/eval.js` under the Electron binary with `ELECTRON_RUN_AS_NODE=1`), `npm test` (`node:test` backend regressions with experimental module mocks, including lifecycle and native framing), `npm run typecheck`, `npm run lint`. Backend implementation does not imply the product screens are built; current run/setup status lives in the README.
 
 ### IPC contract
 
@@ -174,6 +175,8 @@ Calls:
 
 Every call rejects with an `Error` on failure; the renderer shows the error and never substitutes data.
 
+`privacy.deleteFile` is one shared in-flight Promise: duplicate deletes join it; every other IPC call rejects with "Local file deletion in progress" until it settles. It stops capture, invalidates queued judgments, closes Store, and removes the DB, sidecars and widget file. Removal makes at most three attempts with 200 ms between attempts. Final failure rejects with "Delete failed, file still present"; either outcome releases exclusivity. A later normal data call may create a new empty migrated Store; discarded work may not.
+
 Events (`window.ledger.on(name, listener)` returns an unsubscribe): `verdict:updated {visitId}`, `capture:status {state:'ok' | 'failing' | 'denied'}`, `session:changed {sessionId | null}`.
 
 ### Capture loop
@@ -181,7 +184,7 @@ Events (`window.ledger.on(name, listener)` returns an unsubscribe): `verdict:upd
 Main thread, `setInterval` 1000 ms.
 
 1. Read idle with `powerMonitor.getSystemIdleTime()`.
-   - If idle ≥ 120 s, or the screen is locked (`getSystemIdleState(120) === 'locked'`, or a `lock-screen` event on Windows/macOS), close the open attention visit at `now − idle`, then open a `kind='away'` visit. It closes on the first tick with idle < 120 s.
+   - If idle ≥ 120 s, or the screen is locked (`getSystemIdleState(120) === 'locked'`, or a `lock-screen` event on Windows/macOS), close the open attention visit at `now − idle` (at `now` for a lock below the idle threshold), then open a `kind='away'` visit. It closes on the first tick with idle < 120 s and the screen unlocked. Backdate only an open, observed visit: if sleep or capture failure left no visit open, the away visit starts at the current tick, leaving the gap unrecorded ([ADR-009](adr/ADR-009-away-never-fills-capture-gaps.md)).
 2. Otherwise call x-win `activeWindow()`. Key = `info.execName` + `title`.
    - If the key equals the open visit's key, update `last_seen_at`.
    - On change, close the old visit and open a new one with `app_name = info.name`, `exec_name = info.execName`, `window_title` truncated to 512 chars, and `url`. URL resolution:
@@ -198,6 +201,8 @@ Main thread, `setInterval` 1000 ms.
 ### Harness
 
 Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](adr/ADR-002-harness-order.md); model stage per [ADR-005](adr/ADR-005-system-one-plus-slm.md).
+
+Queued/in-flight work belongs to the current database generation. Delete and quit clear queued IDs and advance that generation. After inference, a stale result returns before acquiring Store or writing, so it cannot recreate a deleted DB or contaminate a replacement. End does not invalidate work: ended-session verdicts continue. A user tap made during inference wins because queue insertion does not overwrite an existing verdict. Learning contribution ownership and resets are defined in [data-model §2–4](data-model.md), justified in [ADR-010](adr/ADR-010-backend-work-ownership.md).
 
 1. **Rules.** Normalize targets to lowercase. A target containing `.` is a site: it matches if the URL hostname equals it or ends with `.`+target, or, when the URL is null, if the target's first label (`youtube` from `youtube.com`) appears as a whole word in the lowercased title. Any other target is an app: it matches if it equals `exec_name` lowercased without `.exe`/`.app`, or appears as a whole word in the lowercased `app_name`. x-win names Word `WINWORD` / "Microsoft Word", so plain equality would miss the name a person types. A site match beats an app match. Source `rule`, label from the role (`work` → serves, `distraction` → drifts).
 2. **Memory.** `match_key` = URL hostname if a URL exists. Otherwise it is the lowercased `exec_name` (`app_name` on rows without one), unless the window is a known browser, in which case it is null and memory is skipped. Apply only when `tap_count ≥ 2` (BR-004). Source `memory`. `review.tap` computes the same key.
@@ -234,31 +239,34 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 - Create `createDecisionContext({contextSize: {max: 1024}})`, plus `createContext({contextSize: 2048})` for S2. At launch, in the background, after the windows show: call `warmup()`, then run one throwaway S1 `decide()` and one S2 prompt on a fixed dummy window. `warmup()` alone does not cover the first choice `decide()`, which cost about 10 s cold on Vulkan (spike O1). Status turns `ready` only after the throwaway pair.
 - If `InsufficientMemoryError` is thrown, retry once with `gpu: false`.
 - Statuses: `loading | ready | missing-file | failed:<message>`. Start never waits on the runtime (US-001).
+- Load/warmup failure disposes the acquired native runtime before propagating failure. Quit stops capture, invalidates the queue, closes Store, and delays final exit until async runtime disposal finishes. Stopping during load waits for settlement and disposes the late-loaded instance without publishing a ready judge.
 
 ### τ (eval)
 
 - `npm run eval [fixtures.json]` builds and runs `electron/eval/run.ts` under the Electron binary with `ELECTRON_RUN_AS_NODE=1`. The argument defaults to `eval/fixtures.json`.
 - It loads `eval/fixtures.json` into `eval_case`, runs each case through the full Harness against a throwaway in-memory session (it never touches user visits), and writes `eval_run` rows.
 - It prints precision and asserted count per source. τ = the smallest value in {0.05, 0.10, …, 0.95} at which model-source precision over cases with `confidence ≥ τ` and label ≠ `unclear` meets the precision bar in [`idea.md` §9](../idea.md) **and** at least 10 cases are asserted. It upserts `setting('tau', τ)`; if no τ qualifies, it deletes the row. The grid starts at 0.05 because S1 `confidence` is `tanh(margin / 2)` of the top two choices: on the 43-case dev set the correct asserted labels sit at 0.05–0.6, and a grid starting at 0.50 would assert almost nothing.
-- `eval/fixtures.json` (O4) is held out. Prompt wording is tuned on a separate dev set (`spike/dev-cases.json` on `spike/smoke`), never on the fixtures.
+- `eval/fixtures.json` (O4) is not used to tune prompts. Wording was frozen on the separate dev set (`spike/dev-cases.json` on `spike/smoke`) before these fixtures were authored. The four mandatory `idea.md` §3 probes were already seen during tuning, so this is an authored evaluation with probe overlap, not an independently authored blind holdout. Keep the fixtures and prompts unchanged after inspecting results.
+   - Windows run `e5acdc66-0c1a-4a91-8ae8-17f157a3accb`, 2026-10-09: 60 cases; rule 15 asserted, 15 correct; memory 0 cases; model 45 cases, 34 asserted, 31 correct before the gate. At τ = 0.05, model 31 asserted, 29 correct (0.94 precision), so the runner saved 0.05. OS labels describe authored windows; this does not verify capture on macOS or Linux.
+   - Verification used a temporary `APPDATA`, not the user's file. SQLite held 60 `eval_case` and 60 `eval_run` rows, with no sessions, visits, or memory added by evaluation. Built Electron IPC exposed `evalRanAt` and τ; review gated below-threshold and missing-confidence verdicts, accepted equality, and gated all model verdicts when τ was removed. A separate rules-only run removed a pre-existing τ because no model assertions qualified.
 - Before any run exists, every model verdict shows as unclear (US-009, idea.md §9).
 
 ### Native host
 
-- The manifest `path` is a launcher written by `scripts/install-native-host.mjs`: `ledger-host.bat` on Windows, `ledger-host.sh` (chmod 755) on macOS and Linux. The launcher runs the repo's `node_modules/electron/dist` binary with `ELECTRON_RUN_AS_NODE=1` on `out/native-host/host.js`, so a judge needs no system Node beyond `npm`.
-- It registers name `com.focuslocal.ledger`, with `allowed_origins` set to the ID pinned by the manifest `key`, for Chrome, Edge, and Brave. On Windows: `HKCU\Software\{Google\Chrome,Microsoft\Edge,BraveSoftware\Brave-Browser}\NativeMessagingHosts\com.focuslocal.ledger`. On macOS and Linux: the matching `NativeMessagingHosts` directories.
-- The host reads 4-byte little-endian length-framed JSON from stdin:
-  - `{type:'tab', url, title, browser}` → upsert `browser_tab` id 1.
-  - `{type:'status'}` → reply `{intention, startedAt} | {none:true}`, read from `session WHERE ended_at IS NULL`.
-- It opens and closes the DB for each message.
-- The packaged macOS app does not install the host. x-win already reads the URL there.
+- Windows only today: `scripts/install-native-host.mjs` writes a UTF-8 `ledger-host.bat` and native manifest under `out/native-host/`. The launcher silently selects code page 65001, disables delayed expansion, quotes paths/escapes literal percent signs, and forces `ELECTRON_RUN_AS_NODE=1` for the installed Electron binary and built host. Stdout stays framing-only, including Unicode checkout paths.
+- The installer derives `allowed_origins` from the public `key` in `extension/manifest.json` and prints the Extension ID. It registers `com.focuslocal.ledger` in `HKCU\Software\{Google\Chrome,Microsoft\Edge,BraveSoftware\Brave-Browser}\NativeMessagingHosts`. It refuses another checkout's registration or unrelated launcher/manifest; uninstall removes only its owned default registration and files, preserving unrelated named values/subkeys. It requires an already installed Electron binary and never downloads one. macOS/Linux installation is deferred.
+- The host validates UTF-8 JSON in 4-byte little-endian length frames, bounded to 1 MiB:
+  - `{type:'tab', url, title, browser}` → upsert `browser_tab` id 1; no reply.
+  - `{type:'status'}` → reply `{intention, startedAt} | {none:true}`, read from the running session.
+- Every message opens/closes SQLite. URI `mode=rw` prevents tab writes from creating a missing DB atomically; status uses `mode=ro` plus `readOnly: true`. The host never migrates or creates Store. Missing/incompatible/locked DB or close errors yield `{none:true}` for status and no tab write, with generic stderr diagnostics that omit titles/URLs; errors are not successful empty-session evidence. Stdout contains only framed replies.
+- `node scripts/check-native-host.mjs` exercises the generated Windows launcher with one framed status request, validates framing/status and clean exit, and reports none/running. It does not prove browser relay or distinguish unavailable Store from no session.
 
 ### Extension
 
 - MV3, permissions `tabs` and `nativeMessaging`, with a pinned `key`.
-- The background service worker calls `chrome.runtime.connectNative('com.focuslocal.ledger')` and reconnects with 1 s, 2 s, 4 s, … up to 30 s of backoff on `onDisconnect`.
-- It sends a tab message on `tabs.onActivated`, on `tabs.onUpdated` (status `complete`), and on `windows.onFocusChanged`.
-- The popup asks for status and shows the intention and elapsed minutes, or "No session". No verdicts are shown (BR-001).
+- The background service worker calls `chrome.runtime.connectNative('com.focuslocal.ledger')` and reconnects with 1 s, 2 s, 4 s, … up to 30 s backoff on `onDisconnect`; a port lasting over 30 s resets the delay. During each disconnected capped wait, one `getPlatformInfo()` call halfway through refreshes MV3 lifetime so the reconnect timer survives the idle deadline. No healthy-port heartbeat, extra permission, storage, or network is added.
+- It relays the focused non-private active tab on activation, completed updates and window focus changes, including reconnect. Asynchronous stale tab queries are discarded; private windows/tabs never refresh `browser_tab`, even if incognito access is enabled.
+- The popup asks for status and shows the intention and elapsed minutes, or "No session". No verdicts are shown (BR-001). A host database error also returns no-session status; it is not proof that Store is healthy.
 
 ### Widgets
 
@@ -280,7 +288,7 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 - `extendInfo.NSAppleEventsUsageDescription`: "Ledger reads the active tab URL to label visits. It stays on this Mac."
 - Models go in via `extraResources: models/*.gguf`. `asarUnpack` covers `node_modules/@miniben90/**`.
 - After the build, run `codesign --force --deep --sign - "release/mac-arm64/Ledger.app"`.
-- The README tells users to choose "Open Anyway" in System Settings, or run `xattr -dr com.apple.quarantine`.
+- These packaging instructions are deferred design, not a currently shipped Mac download (ADR-007).
 
 ### Model fetch
 
@@ -310,10 +318,10 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 | Model file missing | Status `missing-file`; model verdicts `unclear`; Start and End unaffected | US-001, BR-003 |
 | VRAM out of memory | `InsufficientMemoryError` → retry once with `gpu: false`; else `failed:<message>` | BR-003 |
 | Session ended while the queue is still judging | Rows show "Judging…" until `verdict:updated` | ADR-001 |
-| Conflicting taps | The latest tap is the user verdict; memory needs `tap_count ≥ 2` | BR-004 |
+| Conflicting taps | Latest tap is the user verdict; current memory contributions reset before its vote counts as 1, with historical labels retained | BR-004 |
 | Browser without URL and memory | Memory skipped (`match_key` null for browsers); rules on title words, then the model | BR-004 |
 | Extension not installed, host not registered, or incognito tab | No events (incognito by default) → URL from x-win or empty | US-002 |
-| Delete-file while the host holds the DB | Retry 3×200 ms, then show "Delete failed, file still present" | US-008 |
+| Delete-file while the host holds the DB | Exclusive removal makes three attempts separated by 200 ms; final failure rejects "Delete failed, file still present". Late judgments cannot recreate Store | US-008 |
 | Multi-monitor | x-win reports the focused window regardless of screen; one visit at a time | US-002 |
 | Wayland session | x-win errors → `capture:status failing` → gap copy | US-002, US-010 |
 

@@ -11,9 +11,10 @@
     "dev": "vite dev",
     "start": "npm run build:app && electron .",
     "build:app": "tsc && vite build",
+    "build:host": "vite build --config vite.host.config.ts",
     "build": "npm run build:app && electron-builder --config ./electron-builder.ts",
     "eval": "npm run build:app && node scripts/eval.mjs",
-    "test": "node --test electron/**/*.test.ts src/**/*.test.ts",
+    "test": "node --experimental-test-module-mocks --test electron/**/*.test.ts native-host/*.test.ts src/**/*.test.ts",
     "typecheck": "tsc",
     "lint": "eslint --report-unused-disable-directives .",
     "format": "npm run lint -- --fix"
