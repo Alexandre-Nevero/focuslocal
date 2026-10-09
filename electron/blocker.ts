@@ -37,11 +37,11 @@ const onList = (target: string, kind: "site" | "app", list: string[], role: "sit
 };
 
 export function decision(input: {
-    target: string;
-    kind: "site" | "app";
-    work: string[];
-    block: string[];
-    intention: string;
+    target: string,
+    kind: "site" | "app",
+    work: string[],
+    block: string[],
+    intention: string
 }): "allow" | "block" {
     const {target, kind, work, block, intention} = input;
     if (onList(target, kind, work, kind))

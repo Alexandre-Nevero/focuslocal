@@ -3,10 +3,10 @@ import {ChevronLeftIcon, ErrorNote, OutcomePair, Page} from "../components.tsx";
 import {capital, counted, dayLabel, duration, host, latency, sourceWord, timeOfDay, timeRange} from "../format.ts";
 import {errorText, go, ledger, useLoad} from "../ledger.ts";
 import {dayKey, dayTitle} from "../period.ts";
-import type {CoachActionWire, ReviewVisit} from "../shared/types.ts";
 import {median} from "../summary.ts";
 import {Legend, Trace} from "../trace.tsx";
 import {variantOf, variantWord} from "../trace-model.ts";
+import type {CoachActionWire, ReviewVisit} from "../shared/types.ts";
 
 function visitMs(visit: ReviewVisit) {
     return Math.max(0, Date.parse(visit.endedAt ?? visit.lastSeenAt) - Date.parse(visit.startedAt));

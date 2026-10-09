@@ -16,7 +16,8 @@ const ALL_PRESET_HOSTS = new Set(
 );
 
 export function normalizeHost(target: string): string {
-    return target.trim().toLowerCase().replace(/^www\./, "");
+    return target.trim().toLowerCase()
+        .replace(/^www\./, "");
 }
 
 function wholeWordRe(word: string): RegExp {

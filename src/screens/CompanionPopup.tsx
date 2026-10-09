@@ -16,16 +16,16 @@ function elapsedMinutes(startedAt: string | null, now: number) {
 }
 
 type CompanionPopupProps = {
-    mode: "running" | "idle"
-    intention: string
-    startedAt: string | null
-    coachText: string | null
-    hasEnded: boolean
-    onEnd(): void
-    onNotWork(): void
-    onAsk(text: string): void
-    onDrag(dx: number, dy: number): void
-    expanded: boolean
+    mode: "running" | "idle",
+    intention: string,
+    startedAt: string | null,
+    coachText: string | null,
+    hasEnded: boolean,
+    onEnd(): void,
+    onNotWork(): void,
+    onAsk(text: string): void,
+    onDrag(dx: number, dy: number): void,
+    expanded: boolean,
     onToggle(): void
 };
 
@@ -46,12 +46,12 @@ export function CompanionPopup({
     const [askDraft, setAskDraft] = useState("");
     const [petHover, setPetHover] = useState(false);
     const dragRef = useRef<{
-        pointerId: number
-        startX: number
-        startY: number
-        lastX: number
-        lastY: number
-        startTime: number
+        pointerId: number,
+        startX: number,
+        startY: number,
+        lastX: number,
+        lastY: number,
+        startTime: number,
         dragging: boolean
     } | null>(null);
 

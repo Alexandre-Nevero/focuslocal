@@ -4,13 +4,13 @@ import {setTimeout as sleep} from "node:timers/promises";
 import {BrowserWindow, ipcMain, systemPreferences} from "electron";
 import {closeDb, getDb} from "./store/db.ts";
 import {dbPath, widgetFilePath} from "./paths.ts";
-import {runtimeStatus} from "./ai/runtime.ts";
+import {runtimeStatus, modelsDir} from "./ai/runtime.ts";
 import {MODEL_ID} from "./ai/judge.ts";
 import {startCapture, stopCapture} from "./capture/poller.ts";
 import {memoryKey} from "./harness/memory.ts";
 import {discardJudgments, prepareIntent} from "./harness/queue.ts";
 import {askCoach, type CoachAction, type LocalRecord} from "./ai/coach.ts";
-import {modelsDir} from "./ai/runtime.ts";
+
 import {applyCompanionBounds, currentCompanionBounds, setCompanionShown} from "./companion-window.ts";
 import {fillBlock, matchPreset} from "./presets.ts";
 import {listSaved, readSwitch, removeTarget, saveTarget, writeSwitch} from "./saved-lists.ts";
@@ -72,7 +72,8 @@ function buildLocalRecord(sessionId: string): LocalRecord {
     const saved = listSaved();
     const repeatedReaches = db.prepare(`
         SELECT app_name FROM visit GROUP BY app_name HAVING count(DISTINCT session_id) > 1 ORDER BY app_name
-    `).all().map((row) => String(row.app_name));
+    `).all()
+        .map((row) => String(row.app_name));
     return {
         sessionCount,
         yesCount,
@@ -361,9 +362,11 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
         };
     },
     "sites.save"(target, role) {
-        saveTarget(text(target, "target").trim().toLowerCase(), oneOf(role, ["work", "block"], "role"));
+        saveTarget(text(target, "target").trim()
+            .toLowerCase(), oneOf(role, ["work", "block"], "role"));
     },
-    "sites.remove": (target) => removeTarget(text(target, "target").trim().toLowerCase()),
+    "sites.remove": (target) => removeTarget(text(target, "target").trim()
+        .toLowerCase()),
     "settings.get"() {
         return {judge: readSwitch("judge"), coach: readSwitch("coach"), companion: readSwitch("companion")};
     },
@@ -382,7 +385,8 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
         const visit = getDb().prepare(`
             SELECT id FROM visit WHERE session_id = ? AND kind = 'attention' AND ended_at IS NULL
             ORDER BY started_at DESC LIMIT 1
-        `).get(running.id);
+        `)
+            .get(running.id);
         if (visit == null)
             throw new Error("No open attention visit");
         tap(String(visit.id), "drifts");
@@ -409,7 +413,8 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
         if (!readSwitch("coach"))
             throw new Error("Coach is off");
         const id = text(sessionId, "sessionId");
-        const row = getDb().prepare("SELECT ended_at FROM session WHERE id = ?").get(id);
+        const row = getDb().prepare("SELECT ended_at FROM session WHERE id = ?")
+            .get(id);
         if (row == null)
             throw new Error(`No session ${id}`);
         if (row.ended_at == null)
@@ -417,7 +422,8 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
 
         const prior = getDb().prepare(`
             SELECT role, text FROM coach_turn WHERE session_id = ? ORDER BY created_at
-        `).all(id) as {role: string, text: string}[];
+        `)
+            .all(id) as {role: string, text: string}[];
         const messages = prior.map((turn) => ({
             role: turn.role === "assistant" ? "coach" as const : "user" as const,
             text: turn.text
@@ -441,8 +447,10 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
         if (!Array.isArray(work))
             throw new TypeError("work must be an array");
         const sentence = text(intention, "intention");
-        const workList = work.map((w) => text(w, "work entry").trim().toLowerCase());
-        const savedBlock = listSaved().filter((t) => t.role === "block").map((t) => t.target);
+        const workList = work.map((w) => text(w, "work entry").trim()
+            .toLowerCase());
+        const savedBlock = listSaved().filter((t) => t.role === "block")
+            .map((t) => t.target);
         return fillBlock({intention: sentence, savedBlock, work: workList, preset: matchPreset(sentence)});
     }
 };

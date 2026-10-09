@@ -170,7 +170,8 @@ function tick() {
 
 function savedBlockTargets(): string[] {
     try {
-        return listSaved().filter((row) => row.role === "block").map((row) => row.target);
+        return listSaved().filter((row) => row.role === "block")
+            .map((row) => row.target);
     } catch {
         return [];
     }
@@ -181,7 +182,8 @@ function sessionLists(): {work: string[], block: string[], intention: string} | 
         return null;
     const rows = getDb().prepare("SELECT target, role FROM declared_target WHERE session_id = ?")
         .all(sessionId) as {target: string, role: string}[];
-    const session = getDb().prepare("SELECT intention FROM session WHERE id = ?").get(sessionId) as {intention: string} | undefined;
+    const session = getDb().prepare("SELECT intention FROM session WHERE id = ?")
+        .get(sessionId) as {intention: string} | undefined;
     if (session == null)
         return null;
     const work = rows.filter((r) => r.role === "work").map((r) => r.target);

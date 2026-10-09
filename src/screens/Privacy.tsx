@@ -1,9 +1,9 @@
 import {useState, type ReactNode} from "react";
 import {ConfirmStep, ErrorNote, Page} from "../components.tsx";
 import {dayLabel, modelStatusWord, timeOfDay} from "../format.ts";
-import {Switches} from "./Switches.tsx";
 import {go, ledger, useLoad} from "../ledger.ts";
 import {themes, useTheme, type Theme} from "../theme.ts";
+import {Switches} from "./Switches.tsx";
 import type {Privacy as PrivacyFacts} from "../shared/types.ts";
 
 type Tone = "on" | "pending" | "off";

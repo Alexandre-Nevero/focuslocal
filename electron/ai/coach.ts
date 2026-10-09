@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {getLlama, LlamaChatSession, QwenChatWrapper, type ChatHistoryItem, type LlamaModel} from "node-llama-cpp";
-import type {Label, Outcome, Review, ReviewVisit, Source} from "../../src/shared/types.ts";
+import type {Outcome, Review, ReviewVisit, Source} from "../../src/shared/types.ts";
 
 export const COACH_FILE = "Qwen3.5-2B-Q4_K_M.gguf";
 
@@ -148,7 +148,7 @@ export function intentPrompt(sentence: string): string {
 }
 
 export function acceptIntent(reply: string): string | null {
-    let text = reply.replace(/<think>[\s\S]*?<\/think>/gi, "");
+    const text = reply.replace(/<think>[\s\S]*?<\/think>/gi, "");
     const lines = text.split(/\r?\n/);
     let line = "";
     for (const part of lines) {
@@ -185,7 +185,8 @@ export function extractActions(reply: string, record: LocalRecord): CoachAction[
         const colon = body.indexOf(":");
         if (colon === -1)
             continue;
-        const kind = body.slice(0, colon).trim().toLowerCase();
+        const kind = body.slice(0, colon).trim()
+            .toLowerCase();
         const arg = body.slice(colon + 1).trim();
         if (arg === "")
             continue;

@@ -12,13 +12,19 @@ let blocklistCache = null;
 
 const stripWww = (host) => (host.startsWith("www.") ? host.slice(4) : host);
 
-/** @param {string} host @param {string} pattern */
+/**
+ * @param {string} host @param {string} pattern
+ * @param pattern
+ */
 function siteBlocked(host, pattern) {
     const h = stripWww(host.toLowerCase());
     const p = stripWww(pattern.toLowerCase());
     return h === p || h.endsWith(`.${p}`);
 }
 
+/**
+ *
+ */
 function fetchBlocklist() {
     const now = Date.now();
     if (blocklistCache != null && now - blocklistCache.at < 2000) {
@@ -35,6 +41,10 @@ function fetchBlocklist() {
     });
 }
 
+/**
+ *
+ * @param target
+ */
 function recordHit(target) {
     if (port) {
         port.postMessage({type: "hit", target});
@@ -43,7 +53,10 @@ function recordHit(target) {
     chrome.runtime.sendNativeMessage(HOST, {type: "hit", target}, () => {});
 }
 
-/** @param {number} tabId @param {chrome.tabs.Tab} tab */
+/**
+ * @param {number} tabId @param {chrome.tabs.Tab} tab
+ * @param tab
+ */
 async function maybeBlock(tabId, tab) {
     if (tab.incognito || tab.url == null || tab.url.startsWith(blockedPage)) {
         return;

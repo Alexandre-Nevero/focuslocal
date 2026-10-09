@@ -1,4 +1,4 @@
-export type TimedPlan = {kind: "timed"; workMin: number; breakMin: number; count: number};
+export type TimedPlan = {kind: "timed", workMin: number, breakMin: number, count: number};
 export type OpenPlan = {kind: "open"};
 export type Plan = TimedPlan | OpenPlan;
 
@@ -27,7 +27,7 @@ export function lengthMin(plan: TimedPlan): number {
 
 const MS_PER_MIN = 60_000;
 
-export function phaseAt(plan: Plan, elapsedMs: number): {phase: "work" | "break"; done: boolean} {
+export function phaseAt(plan: Plan, elapsedMs: number): {phase: "work" | "break", done: boolean} {
     if (plan.kind === "open")
         return {phase: "work", done: false};
 
@@ -57,7 +57,7 @@ export function phaseAt(plan: Plan, elapsedMs: number): {phase: "work" | "break"
     return {phase: "work", done: true};
 }
 
-export function trayWord(input: {phase: "work" | "break" | null; asking: boolean}): "work" | "break" | "?" {
+export function trayWord(input: {phase: "work" | "break" | null, asking: boolean}): "work" | "break" | "?" {
     if (input.asking)
         return "?";
     if (input.phase === null)
