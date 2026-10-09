@@ -1,6 +1,6 @@
 # Ledger — Agent guide
 
-Ledger is a desktop session review that puts a stated intention next to the windows a person actually used, judged on the device, with the window title never leaving the machine. It serves a self-employed person, working on their own laptop, who cannot tell at the end of a block whether it finished the thing.
+Ledger is a desktop session review that puts a stated intention next to the windows a person actually used, so they can notice the gap. The finish answer is stored and is not the goal. Judgment runs on the device. The window title never leaves the machine. It serves a self-employed person, working on their own laptop, who does not notice what a block was made of.
 
 Teammates need `/docs` and this file. Do not commit an `fmd/` folder.
 
@@ -53,11 +53,12 @@ There is no ledger, so update the owning doc in the same change. Do not add a §
 - No secrets in the diff.
 - No network client on the path of the review.
 - No productivity score, rate, streak, or hours headline.
-- Do not treat the Apple on-device model as chosen. Bennet owns the shell and the runtime. The 2026-10-09 probe was a measurement, n=4.
+- The runtime is node-llama-cpp with Qwen3.5-2B (ADR-003). The Apple on-device model was a probe, n=4, and is not in the build.
+- `docs/system-design.md` belongs to Bennett Payoyo. Change it through him.
 
 ## Stack currency
 
-None pinned yet. Verify a library against its current docs before writing a call. Do not write an API from memory.
+Electron 44, node-llama-cpp 3.22, Qwen3.5-2B Q4_K_M, Vite with vite-plugin-electron, React, @miniben90/x-win. The pins live in [`docs/system-design.md`](docs/system-design.md) §4. Verify a library against its current docs before writing a call. Do not write an API from memory.
 
 ## Commands
 

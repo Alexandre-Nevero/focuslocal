@@ -1,6 +1,6 @@
 # Ledger
 
-A desktop session review. You say what you meant to finish. The app records the windows you actually used. At the end it asks whether you finished it. Judgment runs on the machine. The window title does not leave it.
+A desktop session review. You say what you meant to finish. The app records the windows you actually used. The review puts those side by side so you can notice the gap. It also asks whether you finished. That answer is stored and is not the point. Judgment runs on the machine. The window title does not leave it.
 
 This repository is the product record and the app. The app shell, local store, and IPC contract run today; capture, the harness, and the screens are being built (see the open issues).
 
@@ -40,6 +40,14 @@ A four-window probe on 2026-10-09, Apple M4, 16 GB, macOS 26.5, showed the on-de
 
 Ledger builds upon Electron, React, Vite with vite-plugin-electron (from the node-llama-cpp `electron-typescript-react` template), node-llama-cpp/llama.cpp, Qwen3.5-2B (Apache-2.0, from `unsloth/Qwen3.5-2B-GGUF`), and @miniben90/x-win. Laya, Kev, GLiNER, Decider, and Jev were evaluated and not shipped (Decider pending O5). The choices are in [ADR-003](docs/adr/ADR-003-electron-and-node-llama-cpp.md) and [ADR-005](docs/adr/ADR-005-system-one-plus-slm.md).
 
+## Team
+
+- Alexandre Andrei Nevero. Product documents.
+- [Bennett Payoyo](https://github.com/Yahiro025). System design, app shell, and model runtime.
+- [Alex](https://github.com/alxxrzfyr).
+
 ## Hackathon
 
 AppBuildersPH Hackathon 2026. Theme is local AI. Code freeze is 2026-10-10 10:00 Asia/Manila. One public repository.
+
+This cycle's development target is Windows. macOS and Linux come next only if that path is stable and time remains. The later customer is a solo maker on Apple Silicon. That is not the download this week. See [ADR-007](docs/adr/ADR-007-windows-first.md).
