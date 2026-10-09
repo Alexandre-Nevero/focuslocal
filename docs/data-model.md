@@ -144,6 +144,7 @@ Class `on-device private` means the field can name a person's document or accoun
 
 Fixture format (`eval/fixtures.json`): `[{id, intention, targets:[{target, role}], app, title, url | null, os:'win' | 'mac' | 'linux', expected}]`.
 Mix: 60 cases total, 20 per OS. 15 resolvable by rules; 45 residual, split about evenly between serves and drifts, with ≥ 8 deliberately ambiguous cases expected `unclear`. Includes the four `idea.md` §3 probe windows. Titles are authored, never copied from real user history.
+The authored set currently has 18 serves, 18 drifts, and 9 unclear residual cases. It was authored after prompt tuning; the four required probes overlap the tuning evidence. No user history was used. Frozen input SHA-256: `97c9e0acbfab3634336723e002d6e29b9b0378b710e649e6f37a3d1a8516b02e`. Evaluation provenance and measured results live in system-design §9 "τ (eval)".
 
 ### Eval run
 

@@ -129,6 +129,7 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 > As a **Worker**, I want the review to name time it did not capture, so that a short trace is not described as the whole block.
 
 - Given the session's wall clock is longer than the sum of visit intervals, when the review opens, then it states the unrecorded duration and does not assign that duration to a window.
+- Given a sleep or capture-failure gap has closed the last visit, when the next captured tick reports idle or locked, then the new away visit starts at that tick, and the gap remains unrecorded rather than becoming away time.
 
 ### 4.1 Cross-cutting rules (`BR-###`)
 

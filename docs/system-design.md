@@ -181,7 +181,7 @@ Events (`window.ledger.on(name, listener)` returns an unsubscribe): `verdict:upd
 Main thread, `setInterval` 1000 ms.
 
 1. Read idle with `powerMonitor.getSystemIdleTime()`.
-   - If idle ≥ 120 s, or the screen is locked (`getSystemIdleState(120) === 'locked'`, or a `lock-screen` event on Windows/macOS), close the open attention visit at `now − idle`, then open a `kind='away'` visit. It closes on the first tick with idle < 120 s.
+   - If idle ≥ 120 s, or the screen is locked (`getSystemIdleState(120) === 'locked'`, or a `lock-screen` event on Windows/macOS), close the open attention visit at `now − idle` (at `now` for a lock below the idle threshold), then open a `kind='away'` visit. It closes on the first tick with idle < 120 s and the screen unlocked. Backdate only an open, observed visit: if sleep or capture failure left no visit open, the away visit starts at the current tick, leaving the gap unrecorded ([ADR-009](adr/ADR-009-away-never-fills-capture-gaps.md)).
 2. Otherwise call x-win `activeWindow()`. Key = `info.execName` + `title`.
    - If the key equals the open visit's key, update `last_seen_at`.
    - On change, close the old visit and open a new one with `app_name = info.name`, `exec_name = info.execName`, `window_title` truncated to 512 chars, and `url`. URL resolution:
@@ -240,7 +240,9 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 - `npm run eval [fixtures.json]` builds and runs `electron/eval/run.ts` under the Electron binary with `ELECTRON_RUN_AS_NODE=1`. The argument defaults to `eval/fixtures.json`.
 - It loads `eval/fixtures.json` into `eval_case`, runs each case through the full Harness against a throwaway in-memory session (it never touches user visits), and writes `eval_run` rows.
 - It prints precision and asserted count per source. τ = the smallest value in {0.05, 0.10, …, 0.95} at which model-source precision over cases with `confidence ≥ τ` and label ≠ `unclear` meets the precision bar in [`idea.md` §9](../idea.md) **and** at least 10 cases are asserted. It upserts `setting('tau', τ)`; if no τ qualifies, it deletes the row. The grid starts at 0.05 because S1 `confidence` is `tanh(margin / 2)` of the top two choices: on the 43-case dev set the correct asserted labels sit at 0.05–0.6, and a grid starting at 0.50 would assert almost nothing.
-- `eval/fixtures.json` (O4) is held out. Prompt wording is tuned on a separate dev set (`spike/dev-cases.json` on `spike/smoke`), never on the fixtures.
+- `eval/fixtures.json` (O4) is not used to tune prompts. Wording was frozen on the separate dev set (`spike/dev-cases.json` on `spike/smoke`) before these fixtures were authored. The four mandatory `idea.md` §3 probes were already seen during tuning, so this is an authored evaluation with probe overlap, not an independently authored blind holdout. Keep the fixtures and prompts unchanged after inspecting results.
+   - Windows run `e5acdc66-0c1a-4a91-8ae8-17f157a3accb`, 2026-10-09: 60 cases; rule 15 asserted, 15 correct; memory 0 cases; model 45 cases, 34 asserted, 31 correct before the gate. At τ = 0.05, model 31 asserted, 29 correct (0.94 precision), so the runner saved 0.05. OS labels describe authored windows; this does not verify capture on macOS or Linux.
+   - Verification used a temporary `APPDATA`, not the user's file. SQLite held 60 `eval_case` and 60 `eval_run` rows, with no sessions, visits, or memory added by evaluation. Built Electron IPC exposed `evalRanAt` and τ; review gated below-threshold and missing-confidence verdicts, accepted equality, and gated all model verdicts when τ was removed. A separate rules-only run removed a pre-existing τ because no model assertions qualified.
 - Before any run exists, every model verdict shows as unclear (US-009, idea.md §9).
 
 ### Native host
