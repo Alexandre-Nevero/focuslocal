@@ -100,7 +100,7 @@ The probe, so it is not mistaken for a budget. On 2026-10-09, `SystemLanguageMod
 |---|---|---|---|
 | Minimum | x64 CPU with AVX2 or Apple Silicon M1+, 8 GB RAM, 3 GB free disk, CPU only | 1–3 s | 3–8 s |
 | Recommended | 16 GB RAM plus a Vulkan GPU with ≥4 GB VRAM, or Apple M1+ with 16 GB | 0.1–0.5 s | 0.5–1.5 s |
-| Bennett (A1000 4 GB, Vulkan) | Model ~1.3 GB + KV ~0.1 GB + overhead ~0.25 GB ≈ 1.65 GB of VRAM | ~0.2 s | ~0.6 s |
+| Bennett (A1000 4 GB, Vulkan) | Model ~1.3 GB + KV ~0.1 GB + overhead ~0.25 GB ≈ 1.65 GB of VRAM | **Measured** (spike O1, warm): 65–75 ms | **Measured** (spike O1, warm): 0.9–1.1 s |
 | Alexandrei (M4 Metal) | Same footprint in unified memory | ~0.2–0.6 s | ~1 s |
 | Alex (Mint) | Unknown until the spike | — | — |
 
@@ -183,7 +183,7 @@ Main thread, `setInterval` 1000 ms.
 2. Otherwise call x-win `activeWindow()`. Key = `info.execName` + `title`.
    - If the key equals the open visit's key, update `last_seen_at`.
    - On change, close the old visit and open a new one with `app_name = info.name`, `window_title` truncated to 512 chars, and `url`. URL resolution:
-     - Read x-win's url getter only on key change.
+     - Read x-win's url getter on key change, and again on each later tick while it is still empty and the exec is in the browser set below; write it to the open visit when it arrives. Spike O1 (Windows, Brave and Edge): the first read right after a switch returned `""` and a later read returned the URL. A URL read costs 30–470 ms, so it never runs on a tick where the URL is already known.
      - If that is empty and the exec is in `{chrome, msedge, brave, chromium, google-chrome}`, take `browser_tab.url` when the window title starts with `browser_tab.title` and `browser_tab.updated_at` is within 5 s.
    - Enqueue the closed visit for Harness.
 3. Windows whose `info.processId === process.pid` (Ledger's own) never open a visit; the previous visit continues.
@@ -206,14 +206,14 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
      decisionContext.decide(doc, {label: {type: 'choice', instruction: 'Does this window serve the stated intention?', criteria: {serves: 'The window is plausibly used to do the intention', drifts: 'The window is unrelated to the intention', unclear: 'Cannot tell from the app, title, and URL'}}})
      ```
      Here `doc` is `Intention: …\nApp: …\nTitle: <first 200 chars>\nURL: …`.
-   - Then S2 on a `LlamaChatSession` over the same model, with `maxTokens: 60`, `budgets: {thoughtTokens: 0}` (no thinking tokens), and a grammar from:
+   - Then S2 on a `LlamaChatSession` over the same model, with `chatWrapper: new QwenChatWrapper({variation: '3.5', thoughts: 'discourage'})`, `maxTokens: 60`, and a grammar from:
      ```ts
      llama.createGrammarForJsonSchema({type: 'object', properties: {label: {enum: ['serves', 'drifts', 'unclear']}, reason: {type: 'string', maxLength: 140}}})
      ```
-     `maxLength` keeps the JSON closable inside 60 tokens. The system prompt forbids repeating the title or URL.
+     `maxLength` keeps the JSON closable inside 60 tokens. The system prompt forbids repeating the title or URL. The auto-resolved wrapper opens a `<think>` segment that swallows the grammar's opening `{`, so `grammar.parse` throws (spike O1); `thoughts: 'discourage'` pre-fills an empty, closed thought.
    - Stored `label` = the S1 choice when S1 and S2 agree and the choice is not `unclear`; otherwise `unclear`.
    - Stored `confidence` = S1 confidence. `reason` = S2 reason, cut to 140 chars, and set to null if it contains the title or URL text (data-model rule). `model_id` = `qwen3.5-2b-q4_k_m`. `model_stage` = `reason` if S2 ran, otherwise `decide`. `latency_ms` = S1 + S2.
-   - Budget: S1 and S2 together race a 10 s timeout. On timeout or error, store `unclear` with the error-free fields null.
+   - Budget: S1 and S2 together race a 10 s timeout. On timeout or error, store `unclear` with the error-free fields null. The abort signal is only checked between native evaluations, so a timed-out call can return a few seconds late (14.7 s observed against 10 s, spike O1).
 4. Emit `verdict:updated`.
 
 **Display gate:** `shown` = `label` unless source is `model` and (`tau` is null or `confidence < tau`), in which case `shown` = `unclear`. The gate is applied when the review is read, so a new τ applies to past sessions.
@@ -221,7 +221,7 @@ Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](ad
 ### Runtime
 
 - `getLlama({gpu: 'auto', build: 'never'})`. Load `loadModel({modelPath})`, where `modelPath` is `process.resourcesPath/models/<file>` when packaged and `<repo>/models/<file>` otherwise. Never `resolveModelFile("hf:…")` at runtime.
-- Create `createDecisionContext({contextSize: {max: 1024}})`, plus `createContext({contextSize: 2048})` for S2. Call `warmup()` at launch, in the background, after the windows show.
+- Create `createDecisionContext({contextSize: {max: 1024}})`, plus `createContext({contextSize: 2048})` for S2. At launch, in the background, after the windows show: call `warmup()`, then run one throwaway S1 `decide()` and one S2 prompt on a fixed dummy window. `warmup()` alone does not cover the first choice `decide()`, which cost about 10 s cold on Vulkan (spike O1). Status turns `ready` only after the throwaway pair.
 - If `InsufficientMemoryError` is thrown, retry once with `gpu: false`.
 - Statuses: `loading | ready | missing-file | failed:<message>`. Start never waits on the runtime (US-001).
 
