@@ -8,6 +8,13 @@ import type {DeclaredTarget, Label} from "../../src/shared/types.ts";
 // Single-flight FIFO: one judgment at a time (system-design §9 Harness).
 const queue: string[] = [];
 let draining = false;
+let generation = 0;
+
+/** Deleted stores and quit sessions must not receive a late native result. End alone keeps pending work. */
+export function discardJudgments() {
+    queue.length = 0;
+    generation++;
+}
 
 export function enqueueVisit(visitId: string) {
     queue.push(visitId);
@@ -34,9 +41,9 @@ async function drain() {
         while (queue.length > 0) {
             const visitId = queue.shift()!;
             try {
-                await judgeVisit(visitId);
+                await judgeVisit(visitId, generation);
             } catch (err) {
-                // The file was deleted mid-judgment, or a write failed: the visit stays "Judging…" until the next launch.
+                // A failed write stays "Judging…" until the next launch.
                 console.error(`Harness: visit ${visitId}`, err);
             }
         }
@@ -45,7 +52,7 @@ async function drain() {
     }
 }
 
-async function judgeVisit(visitId: string) {
+async function judgeVisit(visitId: string, queuedGeneration: number) {
     const db = getDb();
     const visit = db.prepare(`
         SELECT v.app_name, v.exec_name, v.window_title, v.url, v.session_id, s.intention
@@ -69,6 +76,8 @@ async function judgeVisit(visitId: string) {
         (key) => (recall.get(key) as {id: string, label: Label} | undefined) ?? null,
         getJudge()
     );
+    if (queuedGeneration !== generation)
+        return;
 
     // A tap made while the model ran wins: the user's label is never overwritten.
     getDb().prepare(`

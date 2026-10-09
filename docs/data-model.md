@@ -20,13 +20,14 @@ erDiagram
   SESSION ||--o{ VISIT : "contains"
   VISIT ||--o| VERDICT : "labeled by"
   VERDICT }o--o| MEMORY : "may cite"
+  VERDICT }o--o| MEMORY : "currently contributes via memory_vote_id"
   EVAL_CASE ||--o{ EVAL_RUN : "scored by"
   BROWSER_TAB
   SETTING
   SCHEMA_MIGRATION
 ```
 
-A session may have zero declared targets and zero visits. A visit has zero verdicts until Harness writes one, then exactly one. A verdict cites zero or one memory row. An eval case may have zero runs. Eval cases are not visits.
+A session may have zero declared targets and zero visits. A visit has zero verdicts until Harness writes one, then exactly one. A verdict may cite memory as its classification source (`memory_id`) and separately may contribute one current learning vote (`memory_vote_id`). These are independent optional links, not a tap history. An eval case may have zero runs. Eval cases are not visits.
 
 ## 2. Entities & Fields
 
@@ -81,6 +82,7 @@ Class `on-device private` means the field can name a person's document or accoun
 | `id` | text | no | generated | internal | Primary key. |
 | `visit_id` | text | no | — | internal | One current verdict per visit. |
 | `memory_id` | text | yes | null | internal | Set when source is `memory`. |
+| `memory_vote_id` | text | yes | null | internal | Current distinct-visit learning contribution to a memory row. Internal only; not exposed as public `Verdict.memoryId`. |
 | `source` | text | no | — | internal | `rule`, `memory`, `model`, or `user`. |
 | `label` | text | no | — | internal | `serves`, `drifts`, or `unclear`. |
 | `reason` | text | yes | null | internal | Short text from the model, or null for a rule. |
@@ -100,7 +102,7 @@ Class `on-device private` means the field can name a person's document or accoun
 | `id` | text | no | generated | internal | Primary key. |
 | `match_key` | text | no | — | on-device private | URL host, else the lowercased process name (`exec_name`, or `app_name` when that is null). Not a window title, so a document name does not become the key. |
 | `label` | text | no | — | internal | `serves` or `drifts`. |
-| `tap_count` | integer | no | `0` | internal | How many taps support this key. BR-004 uses it. The row may exist at 1 and still must not be applied. |
+| `tap_count` | integer | no | `0` | internal | Distinct visits contributing to the current label since the last reset/forget. BR-004 uses it; a row at 1 is not applied. |
 
 ### Browser tab
 
@@ -144,6 +146,7 @@ Class `on-device private` means the field can name a person's document or accoun
 
 Fixture format (`eval/fixtures.json`): `[{id, intention, targets:[{target, role}], app, title, url | null, os:'win' | 'mac' | 'linux', expected}]`.
 Mix: 60 cases total, 20 per OS. 15 resolvable by rules; 45 residual, split about evenly between serves and drifts, with ≥ 8 deliberately ambiguous cases expected `unclear`. Includes the four `idea.md` §3 probe windows. Titles are authored, never copied from real user history.
+The authored set currently has 18 serves, 18 drifts, and 9 unclear residual cases. It was authored after prompt tuning; the four required probes overlap the tuning evidence. No user history was used. Frozen input SHA-256: `97c9e0acbfab3634336723e002d6e29b9b0378b710e649e6f37a3d1a8516b02e`. Evaluation provenance and measured results live in system-design §9 "τ (eval)".
 
 ### Eval run
 
@@ -182,6 +185,8 @@ No field is stored for a future dashboard. Model-call count is a count of `verdi
 | Verdict | `fk_verdict_visit` | foreign key, on delete cascade | The label dies with the visit |
 | Verdict | `uq_verdict_visit` | unique (`visit_id`) | One current label. A tap updates the row. It does not insert a second one. |
 | Verdict | `fk_verdict_memory` | foreign key, on delete set null | Dropping memory keeps the old verdict and clears the link (US-008) |
+| Verdict | `memory_vote_id REFERENCES memory(id)` | foreign key, on delete set null | Forgetting memory releases current contributions without deleting historical labels |
+| Verdict | `ix_verdict_memory_vote` | index (`memory_vote_id`) | Clears all current contributions when a key's label changes |
 | Verdict | `ck_verdict_label` | check | Label is serves, drifts, or unclear (BR-003) |
 | Memory | `uq_memory_key` | unique (`match_key`) | One remembered label per app or site |
 | Eval run | `fk_run_case` | foreign key, on delete cascade | Runs die with the fixture |
@@ -193,17 +198,19 @@ No field is stored for a future dashboard. Model-call count is a count of `verdi
 `outlives_demo` is true. Engine is `node:sqlite`.
 
 - **Migration mechanism:** ordered SQL files (`electron/store/migrations/*.sql`) applied by Store at launch in filename order, recorded in `schema_migration(name, applied_at)`.
+- **Migration `003_memory_votes.sql`:** adds the nullable contribution FK and its index, then sets existing `memory.tap_count` to 0. Old aggregates cannot recover distinct supporting visits. Sessions, visits, memory labels, and historical verdict labels are retained; old memory needs fresh support before eligibility returns.
+- **Learning lifecycle:** a transaction writes the user's verdict and assigns its current contribution. Repeating the same label on the same visit does not increment support. A conflicting label clears that key's contribution links and resets its count before counting the current visit as 1. Other visits' historical labels remain unchanged; they can be tapped again to support the new label. Dropping memory clears both optional FKs through `ON DELETE SET NULL`, so the same visits can reteach after forgetting. This is current support, not lifetime deduplication ([ADR-010](adr/ADR-010-backend-work-ownership.md)).
 - **How a change rolls out:** add a column or table, use it, then remove the old shape in a later build. Do not rename a column in one step.
 - **Backfill strategy:** one local file, so a backfill is a single pass at launch. There is no fleet to watch.
 - **Rollback:** keep a copy of the file next to the new build until the migration has been opened successfully. After a destructive step, rollback is the copy, not the new file.
-- **Data deletion path:** US-008 deletes the file (`ledger.db`, `-wal`, `-shm`, and `widget.txt`), or deletes memory rows. The policy for how long titles live is the open question in [`prd.md` §7](prd.md), not a period invented here.
+- **Data deletion path:** US-008 deletes the file (`ledger.db`, `-wal`, `-shm`, and `widget.txt`), or deletes memory rows. Exclusive deletion/retry and pending-work ownership are defined in [system-design §9](system-design.md#9-build-spec). The policy for how long titles live is the open question in [`prd.md` §7](prd.md), not a period invented here.
 
 ## 5. Doc Integrity Check
 
 - [x] Every entity in §1 has a field table, and every field table is in the diagram. `browser_tab`, `setting`, and `schema_migration` have no relationships.
 - [x] Every field has a SQLite type and an explicit nullability.
 - [x] `on-device private` is a provisional tag. It does not define a retention rule. `security.md` is absent.
-- [x] Every relationship has a foreign key and an on-delete behavior. `memory_id` is nullable and uses set null, matching the optional edge in §1.
+- [x] Every relationship has a foreign key and an on-delete behavior. Both nullable memory links use set null, matching their optional edges in §1; source attribution and current contribution are distinct.
 - [x] Each index names its query. BR-004 is application-enforced and the column a test would read is named.
 - [x] No validation copy from the stories is repeated as a second rule set, and no capacity number is stated.
 - [x] Titles are stored because US-004 renders them later, not because they might be useful. `reason` is called out so it does not become a second copy of the title.

@@ -10,7 +10,7 @@ import {defineConfig} from "eslint/config";
 
 
 export default defineConfig({
-    ignores: ["dist/", "dist-electron/", "release/", "models/"]
+    ignores: ["dist/", "dist-electron/", "release/", "models/", "out/"]
 }, {
     files: ["**/**.{,c,m}{js,ts}{,x}"],
     extends: [

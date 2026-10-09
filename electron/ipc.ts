@@ -8,6 +8,7 @@ import {runtimeStatus} from "./ai/runtime.ts";
 import {MODEL_ID} from "./ai/judge.ts";
 import {startCapture, stopCapture} from "./capture/poller.ts";
 import {memoryKey} from "./harness/memory.ts";
+import {discardJudgments} from "./harness/queue.ts";
 import {openMain, ROUTE_PATTERN, toggleMiniWindow} from "./windows.ts";
 import type {
     DeclaredTarget, HistoryRow, Label, LedgerChannel, LedgerEvents, Outcome, Permissions, PermissionState, Privacy, Review,
@@ -128,13 +129,23 @@ function tap(visitId: string, label: "serves" | "drifts") {
             title: str(visit.window_title),
             url: str(visit.url)
         });
-        if (matchKey != null)
-            db.prepare(`
-                INSERT INTO memory (id, match_key, label, tap_count) VALUES (?, ?, ?, 1)
+        if (matchKey != null) {
+            const previous = db.prepare("SELECT id, label FROM memory WHERE match_key = ?").get(matchKey);
+            if (previous != null && previous.label !== label)
+                db.prepare("UPDATE verdict SET memory_vote_id = NULL WHERE memory_vote_id = ?").run(String(previous.id));
+            const learned = db.prepare(`
+                INSERT INTO memory (id, match_key, label, tap_count) VALUES (?, ?, ?, 0)
                 ON CONFLICT (match_key) DO UPDATE SET
-                    tap_count = CASE WHEN label = excluded.label THEN tap_count + 1 ELSE 1 END,
+                    tap_count = CASE WHEN label = excluded.label THEN tap_count ELSE 0 END,
                     label = excluded.label
-            `).run(randomUUID(), matchKey, label);
+                RETURNING id
+            `).get(randomUUID(), matchKey, label)!;
+            const memoryId = String(learned.id);
+            const vote = db.prepare("UPDATE verdict SET memory_vote_id = ? WHERE visit_id = ? AND memory_vote_id IS NOT ?")
+                .run(memoryId, visitId, memoryId);
+            if (vote.changes > 0)
+                db.prepare("UPDATE memory SET tap_count = tap_count + 1 WHERE id = ?").run(memoryId);
+        }
         db.exec("COMMIT");
     } catch (err) {
         db.exec("ROLLBACK");
@@ -143,8 +154,14 @@ function tap(visitId: string, label: "serves" | "drifts") {
     emit("verdict:updated", {visitId});
 }
 
-async function deleteFile() {
+let deleting: Promise<void> | null = null;
+function deleteFile() {
+    return deleting ??= removeFile().finally(() => deleting = null);
+}
+
+async function removeFile() {
     stopCapture();
+    discardJudgments();
     closeDb();
     const files = [dbPath(), `${dbPath()}-wal`, `${dbPath()}-shm`, widgetFilePath()];
     for (let attempt = 1; ; attempt++) {
@@ -298,5 +315,9 @@ export function recoverUnfinishedSession(): string | null {
 
 export function registerIpc() {
     for (const [channel, handler] of Object.entries(handlers))
-        ipcMain.handle(channel, (_event, ...args: unknown[]) => handler(...args));
+        ipcMain.handle(channel, (_event, ...args: unknown[]) => {
+            if (deleting != null && channel !== "privacy.deleteFile")
+                throw new Error("Local file deletion in progress");
+            return handler(...args);
+        });
 }
