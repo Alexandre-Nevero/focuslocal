@@ -19,17 +19,18 @@ There is no HTTP server. A route here is an in-app address, not a URL on the net
 - System colors over a custom palette, because no visual source file exists and a invented brand color would be a decision nobody made.
 - Words for counts over a percentage, because [`prd.md` BR-006](prd.md) forbids a rate.
 - An unclear row over a guessed label, because the review is where the person settles a window the harness would not assert.
+- The record over a finish headline, because [ADR-006](adr/ADR-006-awareness-over-accountability.md) says the review trains noticing and the answer is secondary.
 
 ## 2. Routes & Actions
 
 | Route | Screen ([`prd.md` §5.1](prd.md)) | Serves | Primary actions | Auth expectation |
 |-------|----------------------------------|--------|-----------------|------------------|
 | `app://permissions` | Permissions | US-002 | Open the OS prompt, return | local, no account |
-| `app://idle` | Idle popover | US-001 | Start, open ledger, open privacy | local, no account |
+| `app://idle` | Idle popover | US-001 | Start, open history, open privacy | local, no account |
 | `app://declare` | Declare | US-001 | Edit intention, edit the two lists, start | local, no account |
 | `app://running` | Running | US-001 | End the session | local, no account |
 | `app://review` | Review | US-004, US-005, US-010 | Tap an unclear row, answer, dismiss | local, no account |
-| `app://ledger` | Ledger | US-007 | Open a past review | local, no account |
+| `app://history` | History | US-007 | Open a past review | local, no account |
 | `app://privacy` | Privacy | US-008, US-009 | Drop memory, delete the file, run the eval | local, no account |
 | `app://mini` | Mini window | US-001 | End the session | local, no account |
 | `app://desktop-widget` | Desktop widget | US-001 | Read-only session display (macOS only) | local, no account |
@@ -45,8 +46,8 @@ flowchart LR
   Idle --> Declare[app://declare]
   Declare --> Running[app://running]
   Running --> Review[app://review]
-  Idle --> Ledger[app://ledger]
-  Ledger --> Review
+  Idle --> History[app://history]
+  History --> Review
   Idle --> Privacy[app://privacy]
 ```
 
@@ -59,7 +60,7 @@ flowchart LR
 | Clock | Elapsed time of the open session | Running | running |
 | VisitRow | One visit, its source, and its label | Review | asserted, unclear, user, gap |
 | OutcomePair | Yes and not yet, same visual weight | Review | unanswered, answered |
-| SessionRow | Intention plus outcome in words | Ledger | empty, filled |
+| SessionRow | Intention plus outcome, as a row and not a score | History | one session, repeated app |
 | PrivacyFacts | Model-call count, model id, no-network line | Privacy | no model, model named |
 | ConfirmStep | Second step before a delete | Privacy | drop memory, delete file |
 | TrayMenu | Context menu options on Linux tray | Idle popover, Running | idle, running |
@@ -88,6 +89,7 @@ No hex values. The shell uses the operating system's text and window colors unti
 
 - Never use "unproductive", "distracted again", or "you failed the block". The outcome answer has to stay safe to give (BR-002).
 - Never use a percent, a streak, or "hours focused". BR-006.
+- Never call the history a ledger, a report card, or an accountability score. The finish answer is on the review and is not the headline (BR-007).
 - Prefer "Unclear. You decide." over a label the model produced when the bar in [`idea.md` §9](../idea.md) is not met.
 - Prefer "This build has no network client" over "your data is private". The second sentence claims more than US-008 checks.
 

@@ -13,7 +13,7 @@ owns: features (F-###) and their MoSCoW priority · personas · user stories (US
 
 ## 1. Product Purpose & Value Proposition
 
-Ledger is for a self-employed person who works and gets distracted on the same computer. They say what they meant to finish, the app records the windows they actually used, and at the end it asks whether they finished it. An on-device model judges only the windows they did not already classify. The title stays on the machine. A time tracker headlines hours. A blocker only sees domains. Neither one answers the question.
+Ledger is for a self-employed person who works and gets distracted on the same computer. They say what they meant to finish. The app records the windows they actually used. The review puts those two side by side so the gap can be noticed. The question of whether they finished is asked and stored, and it is not the goal. Awareness is. Accountability loses where they conflict ([ADR-006](adr/ADR-006-awareness-over-accountability.md)). An on-device model judges only the windows they did not already classify. The title stays on the machine.
 
 The one-sentence form is [`idea.md` §6](../idea.md). This paragraph is the only longer form.
 
@@ -37,9 +37,9 @@ IDs and MoSCoW tiers match [`idea.md` §7](../idea.md). Nothing here adds an ID.
 | F-001 | Declare the intention and today's work and distraction list. Start immediately. | Must | The review needs the sentence. | |
 | F-002 | Record the frontmost app, title, URL when available, and time away. | Must | Otherwise the answer comes from memory. | |
 | F-003 | Judge in harness order. Rules, then memory, then the on-device model. Store source and label. | Must | The model alone mislabeled the probe. See [ADR-002](adr/ADR-002-harness-order.md). | |
-| F-004 | Review the session and ask whether they finished it. | Must | This is the question in [`idea.md` §1](../idea.md). | |
+| F-004 | Review the session so the gap can be noticed. The finish question is secondary. | Must | The training loop in [`idea.md` §1](../idea.md). | |
 | F-005 | Memory from repeated taps. One tap does not become memory. | Must | The second session has to show a skipped model call. | |
-| F-006 | Ledger of past sessions, counts as words. | Should | One review does not change tomorrow by itself. | Core value survives a delay. |
+| F-006 | History of past sessions. Repetition shows up as rows. | Should | Pattern lags behind a single review. | Core value survives a delay. |
 | F-007 | Privacy panel, drop memory, delete the local file. | Must | The local claim has to be inspectable. | |
 | F-008 | Eval set, precision only from a run. | Must | A claimed accuracy with no run fails the event. | |
 | F-009 | Block sites or apps during the session. | Won't | Would hide the visits the review needs. | Reason and reconsider condition are in [`idea.md` §7](../idea.md). |
@@ -82,11 +82,11 @@ Story priority is Must or Should. A Won't feature has no story. No story is stri
 - Given the model returns anything else, times out, or is not loaded, when the visit is judged, then the label is unclear and the session keeps running.
 
 **US-004 — Review the block** *(F-004)* — Priority: Must
-> As a **Worker**, I want the intention beside the windows I used, so that I can answer whether I finished it.
+> As a **Worker**, I want the intention beside the windows I used, so that I can notice what the block was.
 
-- Given a session has ended, when the review opens, then it shows the intention, each visit's app, the away total, and each verdict's label and source.
-- Given I answer yes or not yet, when the review closes, then the session stores that outcome.
-- Given I close the review without answering, when I next open the ledger, then the session's outcome is unanswered.
+- Given a session has ended, when the review opens, then the intention, each visit's app, the away total, and each verdict's label and source are the body of the screen. The finish question is on the screen and is not the headline.
+- Given I answer yes or not yet, when the review closes, then the session stores that outcome, and nothing on the screen praises or scolds it.
+- Given I close the review without answering, when I next open history, then the session's outcome is unanswered.
 - Given the review renders a verdict, when the label is one the review is allowed to assert, then it is only asserted if it meets the bar in [`idea.md` §9](../idea.md). Otherwise the row is shown as unclear.
 
 **US-005 — Resolve an unclear visit** *(F-004, F-005)* — Priority: Must
@@ -101,11 +101,12 @@ Story priority is Must or Should. A Won't feature has no story. No story is stri
 
 - Given I have tapped the same app or site on more than one visit, when a later visit matches it, then the verdict source is memory and the model call count does not increase.
 
-**US-007 — Read the ledger** *(F-006)* — Priority: Should
-> As a **Worker**, I want past sessions listed with what I answered, so that the next day starts from the record.
+**US-007 — See the pattern as rows** *(F-006)* — Priority: Should
+> As a **Worker**, I want past sessions listed, so that a repetition can be noticed after it has happened more than once.
 
-- Given at least one ended session, when I open the ledger, then each row shows the intention and the outcome, and the counts of answered and finished sessions are words.
-- Given any data, when the ledger renders, then it shows no score, no rate, no streak, and no hours headline.
+- Given one ended session, when I open history, then that session is listed and the screen states no pattern.
+- Given the same app appears in two or more sessions, when I open history, then I can see that repetition in the rows. The screen does not add a sentence that interprets it.
+- Given any data, when history renders, then counts are words, and it shows no score, no rate, no streak, and no hours headline.
 
 **US-008 — See what stayed on the machine** *(F-007)* — Priority: Must
 > As a **Worker**, I want to see what the app ran and where the file is, so that I can check the privacy claim.
@@ -132,7 +133,8 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 | `BR-###` | Rule | Invoked by |
 |----------|------|------------|
 | BR-001 | While a session is running, the UI shows the intention and the clock. It does not show a verdict, a warning, or praise. | US-001, US-002, US-004 |
-| BR-002 | The outcome answer does not change the running UI. The review and the ledger do not praise yes or scold not yet. | US-004, US-007 |
+| BR-002 | The outcome answer does not change the running UI. The review and the history do not praise yes or scold not yet. | US-004, US-007 |
+| BR-007 | Where accountability would change what the person sees, the screen shows the record instead. The finish answer is stored and is not the headline. | US-004, US-007 |
 | BR-003 | A model result that is not serves, drifts, or unclear is stored as unclear. A missing model is the same result. | US-003, US-004 |
 | BR-004 | Memory supplies a label only after the same app or site was tapped on more than one visit. | US-005, US-006 |
 | BR-005 | Window titles and URLs are written only to the local store. No story sends them to a network client, because this build does not have one. | US-002, US-003, US-008 |
@@ -140,18 +142,18 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 
 ## 5. App Flow & UX Intent
 
-**Design reference:** [`design.md`](design.md). Visual stack: not chosen. Bennet owns the shell.
+**Design reference:** [`design.md`](design.md). Visual stack: Electron with React through electron-vite ([ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md)).
 
 ### 5.1 Screen Inventory
 
 | Screen | Purpose | Entry points | States to design |
 |--------|---------|--------------|------------------|
 | Permissions | Explain the capture prompt and what fails without it (US-002) | First launch, or a session start while permission is denied | granted / denied / not-yet-asked |
-| Idle popover | Start a session or open the ledger and the privacy panel (US-001) | Menu-bar click while no session runs | empty history / has history |
+| Idle popover | Start a session or open history and the privacy panel (US-001) | Menu-bar click while no session runs | empty history / has history |
 | Declare | Write the intention and today's lists (US-001) | Start from the idle popover | empty intention / filled / permission missing |
 | Running | Show the intention and the clock until the session ends (US-001, BR-001) | After Start | running / capture failing |
 | Review | Read the record, resolve unclear rows, answer the question (US-004, US-005, US-010) | Session end | loading the record / ready / unanswered on dismiss |
-| Ledger | Past sessions as words (US-007) | Idle popover | empty / has rows |
+| History | Past sessions as rows, so a repetition can be noticed (US-007) | Idle popover | empty / one session / repeated app |
 | Privacy | Calls, model id, drop memory, delete file (US-008) | Idle popover, and the review | ready / confirm drop / confirm delete |
 | Mini window | Always-on-top clock and intention display (US-001, BR-001) | Toggle from tray or shortcut | running / no session |
 | Desktop widget | Display-only desktop layer widget on macOS (US-001, BR-001) | Automatic while session runs | running / no session |
@@ -161,7 +163,7 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 
 **Linear (primary path):**
 
-Permissions, if needed, then Idle popover, then Declare, then Running, then Review, then Ledger.
+Permissions, if needed, then Idle popover, then Declare, then Running, then Review, then History.
 
 **Branching:**
 
@@ -179,7 +181,7 @@ flowchart TD
   Unclear -->|yes| Tap[One tap per row]
   Tap --> Answer[Outcome answer]
   Unclear -->|no| Answer
-  Answer --> Ledger[Ledger]
+  Answer --> History[History]
 ```
 
 **Flow annotations:**
@@ -197,14 +199,14 @@ flowchart TD
 - **Aha / first-value moment:** the first review, with the intention beside windows the person recognizes.
 - **Time-to-first-value target:** not numbered. No measured setup time exists. The path is one permission prompt, one sentence, one work block, then the review.
 - **Skippable / resumable:** the permission step is not skippable if they want capture. The outcome answer is skippable and then counts as unanswered.
-- **Friction budget:** the OS permission prompt and the intention field. No account and no model download in the product spec. Whether the runtime needs a download is Bennet's choice and is not decided here.
+- **Friction budget:** the OS permission prompt and the intention field. No account. The 1.28 GB model file is fetched once at setup, not at first launch of a session ([ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md)).
 
 ### 5.4 UX Constraints
 
 - Start does not wait on the model. The session row is written before any model call (US-001).
 - A shown verdict names its source. The review reads `source` off the verdict row (US-004).
 - The running screen has no verdict on it (BR-001). The running view simply does not bind that column.
-- Counts in the ledger are words (US-007). The formatter has no percent and no hours headline (BR-006).
+- Counts in history are words (US-007). The formatter has no percent and no hours headline (BR-006). The finish count is not the headline (BR-007).
 
 ### 5.5 Instrumentation & Event Taxonomy
 
@@ -213,7 +215,7 @@ These are the rows the product already stores. There is no third-party analytics
 | Event name | Fires when | Key properties | Feeds metric |
 |------------|-----------|----------------|--------------|
 | `session_started` | Start is pressed | session id, intention empty or not | [`idea.md` §8](../idea.md) activation and intention share |
-| `session_ended` | The session closes | session id, outcome or unanswered | [`idea.md` §8](../idea.md) answered share |
+| `session_ended` | The session closes | session id, outcome or unanswered | Stored. Not a target. [`idea.md` §8](../idea.md) says the finished share is not a goal |
 | `verdict_recorded` | A visit receives a label | visit id, source, label | F-008 precision by source, and the privacy panel's model-call count |
 | `memory_applied` | A visit is labeled from memory | visit id, memory id | The second-run check in US-006 |
 
@@ -259,4 +261,4 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 - [`design.md`](design.md)
 - [`system-design.md`](system-design.md)
 - [`data-model.md`](data-model.md)
-- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md)
+- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-006](adr/ADR-006-awareness-over-accountability.md)
