@@ -174,7 +174,7 @@ Avoid low-contrast tiny grey text. Set `font-variant-numeric: tabular-nums` on n
 - Pills/capsules: radius **999 px**. Session highlights and small row pills are warmer panels, not fully saturated buttons.
 - Spacing base: 4 px; regular gaps 8/12/16/24/32; wide content margins 24–32 at 960 px and 48–56 at 1440+.
 - Motion: no entrance choreography or counting animation for results. A short press/focus transition is acceptable; obey `prefers-reduced-motion`.
-- No mascot, gamified badge, victory confetti, flame, streak calendar, or red/green verdict legend.
+- No gamified badge, victory confetti, flame, streak calendar, or red/green verdict legend. The dashboard and the review do not contain a character. The companion is a separate always-on-top window, specified in [ADR-011](adr/ADR-011-coach-companion-and-system-one.md), and it is not a verdict decoration.
 
 ## 4. Screen model and navigation
 
@@ -187,7 +187,7 @@ The **current** renderer (`src/App.tsx`) contains route headings only. `electron
 | **Dashboard** | Chosen month overview plus selected-day peek, overlay, session records | **PROPOSED** `app://dashboard`; existing `app://history` can initially host the layout as a non-breaking replacement. Adding route requires Electron/TypeScript/renderer changes. | Local, no account |
 | **Ledger** | Focused daily time track and session list; selecting session opens Review | **PROPOSED** `app://day/YYYY-MM-DD` or view mode inside existing `app://history`. Not currently present. | Local, no account |
 | **Patterns** | View factual repetition in past session rows | **DEFERRED** new screen: PRD US-007 only permits visible repetition and no interpretation. Do not wire a speculative chart or recommendation engine. | Local, no account |
-| **Field Notes** | Potential longer descriptive session record | **DEFERRED / UNDEFINED** in PRD. Do not invent AI-generated diaries, coaching, or a notes database. | Local, no account |
+| **Field Notes** | Potential longer descriptive session record | **DEFERRED / UNDEFINED** in PRD. Do not invent a notes database. The coach is F-011, not this screen. | Local, no account |
 | **Search glyph** | Would search local sessions | **DEFERRED** (no search story/API). Hide or visibly disable until defined; never a dead clickable control. | Local, no account |
 | **Right circular control** | Occupies avatar position in mockup | **PROPOSED** local Settings/Privacy button with accessible label; **not** a user account/avatar or sign-out. | Local, no account |
 | Permissions | Explain OS capture prompt | Existing `app://permissions` route | Local, no account |
@@ -196,6 +196,8 @@ The **current** renderer (`src/App.tsx`) contains route headings only. `electron
 | History | Past-session access; canonical PRD `US-007` | Existing `app://history`, may be dashboard backing screen | Local, no account |
 | Privacy | Local model/source/file facts and delete actions | Existing `app://privacy` | Local, no account |
 | Mini | Intention and clock only | Existing `app://mini` | Local, no account |
+| Companion | The coach's character. Drag, hover, tap opens the popup (US-012) | **SPECIFIED, not built.** New window, not a route inside the main window. See [ADR-011](adr/ADR-011-coach-companion-and-system-one.md). | Local, no account |
+| Coach | One ended session, from computed figures (US-011) | **SPECIFIED, not built.** Opens from the companion when idle, and from the review. | Local, no account |
 | macOS desktop widget | Read-only intention and clock | PRD planned, not a current renderer route | Local, no account |
 | Browser extension popup | Read-only intention and clock | PRD planned, not a current renderer route | Local, no account |
 
@@ -473,7 +475,7 @@ Session Review remains a different dedicated layout. The main Dashboard must not
 | Privacy / deletion | `window.ledger.privacy.*` | Show actual local values and implement second-step confirm. No new account/remote deletion story. |
 | Documentation name | README, PRD, ADRs, packaging, source comments | Treat display-name change and source/document renaming as separately scoped work. Accepted ADRs remain history; never rewrite their decision rationale retroactively. |
 
-**Provenance:** MEANT is a layout and typography reference. The new repository already declares it **does not copy MEANT application code**. Reimplement patterns in the FocusLocal/Electron renderer; do not import Next.js pages, Vercel authentication, Postgres queries, cloud Pair/Companion logic, or prior product metrics.
+**Provenance:** MEANT is a layout and typography reference. This repository does not copy that application's code. Do not import its Next.js pages, Vercel authentication, Postgres queries, Groq coach route, or companion overlay. The desktop pet in [ADR-011](adr/ADR-011-coach-companion-and-system-one.md) may reuse the tomato sprite. If it does, the README names the file. Do not copy prior product metrics.
 
 ## 14. Verification checklist
 
@@ -485,7 +487,7 @@ Session Review remains a different dedicated layout. The main Dashboard must not
 - [ ] Overlay has *two readable layers*, with non-color labels and a clearly differentiated Not recorded state.
 - [ ] Cream / Coral / Dusty Blue tones are consistent; Dusty Blue stays in the wordmark and status data stays neutral.
 - [ ] Reference canvas and actual 960×700 are both inspected; actual app is scrollable and fully operable.
-- [ ] Nothing suggests an online account, cloud service, mascot, grade, or performance comparison.
+- [ ] Nothing suggests an online account, cloud service, grade, or performance comparison. The companion, if shown, is the separate pet window, not a character inside the dashboard or the review.
 
 ### Behavior and trust checks
 

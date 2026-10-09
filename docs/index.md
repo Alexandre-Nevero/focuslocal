@@ -1,7 +1,7 @@
 # Documentation Index — Ledger
 
 **Maintained by:** Alexandre Andrei Nevero
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-10
 **FMD version:** 6.1.0
 
 ## 0. Source-of-truth map (one fact, one home)
@@ -21,7 +21,7 @@ There is no decision ledger in this set. Precedence is:
 | How it is built | [system-design.md](system-design.md) | Owned by Bennett Payoyo. Shell and runtime chosen in ADR-003 |
 | Stored shape | [data-model.md](data-model.md) | SQLite types are an assumption |
 | Routes, components, visual states | [design.md](design.md) | In-app routes, not HTTP |
-| Why a choice was made | [ADRs](adr/) | ADR-001 silence. ADR-002 harness order. ADR-003 Electron and node-llama-cpp. ADR-004 three OSes and frontends. ADR-005 System One then the small model. ADR-006 the template Vite build. ADR-007 Windows first, Apple Silicon solo makers later. ADR-008 awareness over accountability |
+| Why a choice was made | [ADRs](adr/) | ADR-001 silence. ADR-002 harness order. ADR-003 Electron and node-llama-cpp. ADR-004 three OSes and frontends. ADR-005 System One then the small model, superseded in part by ADR-011. ADR-006 the template Vite build. ADR-007 Windows first, Apple Silicon solo makers later. ADR-008 awareness over accountability. ADR-011 the coach is Qwen, the judge is System One, the companion is the pet |
 | Which docs were deferred | [context.md](../context.md) | Tests, pitch, security, and the build plan wait on a reason written there |
 
 ## 0.5 Active semantic overlays

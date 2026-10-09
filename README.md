@@ -57,7 +57,7 @@ Ledger reuses the problem and several decisions from MEANT, a project Alexandre 
 
 A four-window probe on 2026-10-09, Apple M4, 16 GB, macOS 26.5, showed the on-device model answering in about 0.2 seconds once warm and getting two of the four windows wrong. That probe did not select the runtime.
 
-Ledger builds upon Electron, React, Vite with vite-plugin-electron (from the node-llama-cpp `electron-typescript-react` template), node-llama-cpp/llama.cpp, Qwen3.5-2B (Apache-2.0, from `unsloth/Qwen3.5-2B-GGUF`), and @miniben90/x-win. Laya, Kev, GLiNER, Decider, and Jev were evaluated and not shipped (Decider pending O5). The choices are in [ADR-003](docs/adr/ADR-003-electron-and-node-llama-cpp.md) and [ADR-005](docs/adr/ADR-005-system-one-plus-slm.md).
+Ledger builds upon Electron, React, Vite with vite-plugin-electron (from the node-llama-cpp `electron-typescript-react` template), node-llama-cpp/llama.cpp, Qwen3.5-2B (Apache-2.0, from `unsloth/Qwen3.5-2B-GGUF`), and @miniben90/x-win. Laya, Kev, GLiNER, Decider, and Jev were evaluated and not shipped (Decider pending O5). The choices are in [ADR-003](docs/adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-005](docs/adr/ADR-005-system-one-plus-slm.md), and [ADR-011](docs/adr/ADR-011-coach-companion-and-system-one.md). ADR-011 is the spec for the coach, the companion, and a System One judge. The running code still uses the ADR-005 agreement pass, and it has no coach and no pet yet.
 
 ## Team
 
