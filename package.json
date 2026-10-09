@@ -12,11 +12,14 @@
     "start": "npm run build:app && electron .",
     "build:app": "tsc && vite build",
     "build": "npm run build:app && electron-builder --config ./electron-builder.ts",
+    "eval": "npm run build:app && node scripts/eval.mjs",
+    "test": "node --test electron/**/*.test.ts",
     "typecheck": "tsc",
     "lint": "eslint --report-unused-disable-directives .",
     "format": "npm run lint -- --fix"
   },
   "dependencies": {
+    "@miniben90/x-win": "^3.7.0",
     "node-llama-cpp": "^3.22.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

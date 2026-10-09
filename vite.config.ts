@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // These modules won't be bundled as part of the Vite build of the Electron (main) side,
 // but they'll be included in the final Electron app build inside the asar file.
 // Performance and efficiency wise, this is absolutely fine and has no real drawbacks
-const electronExternalModules = ["node-llama-cpp"];
+const electronExternalModules = ["node-llama-cpp", "@miniben90/x-win"];
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -44,8 +44,8 @@ export default defineConfig({
         },
         electron({
             main: {
-                // Shortcut of `build.lib.entry`.
-                entry: path.join(__dirname, "electron/index.ts"),
+                // Shortcut of `build.lib.entry`. `eval` is `npm run eval` (scripts/eval.mjs), run as Node, never by the app.
+                entry: {index: path.join(__dirname, "electron/index.ts"), eval: path.join(__dirname, "electron/eval/run.ts")},
                 onstart({startup}) {
                     // LEDGER_DEBUG_PORT=9333 npm run dev → renderer DevTools at chrome://inspect (or any CDP client).
                     const debugPort = process.env["LEDGER_DEBUG_PORT"];

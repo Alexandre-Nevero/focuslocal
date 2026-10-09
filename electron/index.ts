@@ -5,6 +5,7 @@ import {registerIpc, recoverUnfinishedSession} from "./ipc.ts";
 import {ledgerDir} from "./paths.ts";
 import {createTray, openMain} from "./windows.ts";
 import {startRuntime, stopRuntime} from "./ai/runtime.ts";
+import {enqueueUnjudged} from "./harness/queue.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,6 +47,7 @@ else {
         registerIpc();
         createTray();
         const recovered = recoverUnfinishedSession();
+        enqueueUnjudged();
         openMain(recovered != null ? `review/${recovered}` : "idle");
         // After the windows show, so Start never waits on the model (US-001).
         void startRuntime();

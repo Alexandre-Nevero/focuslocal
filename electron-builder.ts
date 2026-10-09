@@ -45,7 +45,8 @@ export default {
     asarUnpack: [
         "node_modules/node-llama-cpp/bins",
         "node_modules/node-llama-cpp/llama/localBuilds",
-        "node_modules/@node-llama-cpp/*"
+        "node_modules/@node-llama-cpp/*",
+        "node_modules/@miniben90/**"
     ],
     mac: {
         target: [{
