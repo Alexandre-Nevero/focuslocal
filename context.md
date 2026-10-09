@@ -60,4 +60,4 @@ Deferred, with the reason:
 
 ## Who resolves what
 
-Alexandre Andrei Nevero owns the product documents. Bennet owns the app shell and the model runtime. The third teammate is on the roster and is not named in this file.
+Alexandre Andrei Nevero owns the product documents. Bennett Payoyo (GitHub `Yahiro025`) owns `docs/system-design.md`, the app shell, and the model runtime. Alex (GitHub `alxxrzfyr`) is the third teammate. Earlier notes that say "Bennet" mean Bennett Payoyo.

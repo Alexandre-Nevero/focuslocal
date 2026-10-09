@@ -1,6 +1,6 @@
 # Ledger
 
-A desktop session review. You say what you meant to finish. The app records the windows you actually used. At the end it asks whether you finished it. Judgment runs on the machine. The window title does not leave it.
+A desktop session review. You say what you meant to finish. The app records the windows you actually used. The review puts those side by side so you can notice the gap. It also asks whether you finished. That answer is stored and is not the point. Judgment runs on the machine. The window title does not leave it.
 
 This repository is the product record for that rebuild. There is no application code yet. A judge cannot run Ledger from this commit.
 
@@ -25,6 +25,12 @@ Ledger reuses the problem and several decisions from MEANT, a project Alexandre 
 A four-window probe on 2026-10-09, Apple M4, 16 GB, macOS 26.5, showed the on-device model answering in about 0.2 seconds once warm and getting two of the four windows wrong. That probe did not select the runtime.
 
 Ledger builds upon Electron, React, electron-vite, node-llama-cpp/llama.cpp, Qwen3.5-2B (Apache-2.0, plus a LICENSE copy in `models/`), and @miniben90/x-win. Laya, Kev, GLiNER, Decider, and Jev were evaluated and not shipped (Decider pending O5). The choices are in [ADR-003](docs/adr/ADR-003-electron-and-node-llama-cpp.md) and [ADR-005](docs/adr/ADR-005-system-one-plus-slm.md).
+
+## Team
+
+- Alexandre Andrei Nevero. Product documents.
+- [Bennett Payoyo](https://github.com/Yahiro025). System design, app shell, and model runtime.
+- [Alex](https://github.com/alxxrzfyr).
 
 ## Hackathon
 
