@@ -25,6 +25,10 @@ Not served. Employers and managers, at any tier. Anyone whose machine is a manag
 
 The boundary is what the app could see. If a stretch of the session has no captured window, the review says so. It does not guess that the unseen time was work.
 
+This cycle the loop is proved on Windows ([ADR-007](docs/adr/ADR-007-windows-first.md)). macOS and Linux are folded in only after that path is stable and time remains. A path that is not folded is not supported.
+
+The later customer is a solo maker on an Apple Silicon Mac. Indie hackers, solo founders, freelance designers and developers, writers, and creators who ship alone, reached in English. Intel Macs stay unsupported. That person is who the product is shaped toward. They are not a feature in this build.
+
 ## 3. Evidence
 
 - The owner built MEANT during an internship at Eden Ventures, presented it there, and reports that the presentation validated the problem. This file has the owner's report. It does not have a recording, a buyer, or a date for the presentation.
@@ -110,3 +114,5 @@ Targets below are carried from MEANT §8 (M1, M2, M3). They were unmeasurable th
 - Clinical or diagnostic use, including tools aimed at ADHD as a condition. The audience may overlap. The product does not.
 - A browser extension as the product. An extension cannot see the other apps, which is the gap §4 names. A later helper that only supplies the active URL would be a capture detail, not this product.
 - A course, a rebuild manual, or features whose user is a student reconstructing the app. That was a different project (`apexhuman`).
+- macOS and Linux as supported platforms this cycle. The build target is Windows. Revisit only if that path is stable and time remains ([ADR-007](docs/adr/ADR-007-windows-first.md)).
+- Treating the Apple Silicon solo maker as this cycle's buyer. That person is the later shape of the product. Revisit after the freeze.

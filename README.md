@@ -35,3 +35,5 @@ Ledger builds upon Electron, React, electron-vite, node-llama-cpp/llama.cpp, Qwe
 ## Hackathon
 
 AppBuildersPH Hackathon 2026. Theme is local AI. Code freeze is 2026-10-10 10:00 Asia/Manila. One public repository. This file will be wrong the moment the first slice of the app lands, and it should be updated then rather than left as a claim that the app runs.
+
+This cycle's development target is Windows. macOS and Linux come next only if that path is stable and time remains. The later customer is a solo maker on Apple Silicon. That is not the download this week. See [ADR-007](docs/adr/ADR-007-windows-first.md).

@@ -28,6 +28,8 @@ The one-sentence form is [`idea.md` §6](../idea.md). This paragraph is the only
 
 Employers and managers are not a persona. [`idea.md` §10](../idea.md) excludes them.
 
+This cycle the team proves the loop on Windows first ([ADR-007](adr/ADR-007-windows-first.md)). The later buyer is a solo maker on an Apple Silicon Mac. That is not a second persona, and it has no story yet.
+
 ## 3. Feature Set & Priority
 
 IDs and MoSCoW tiers match [`idea.md` §7](../idea.md). Nothing here adds an ID.
@@ -224,6 +226,7 @@ These are the rows the product already stores. There is no third-party analytics
 Scope exclusions for whole populations and products are in [`idea.md` §10](../idea.md).
 
 - Do not add a cloud model as a fallback when the local one is slow. The review has to finish offline. Revisit only for a feature that is labeled online and is not on the path of F-004.
+- Do not polish macOS or Linux capture in this cycle. The development target is Windows. Revisit only if that path is stable and time remains ([ADR-007](adr/ADR-007-windows-first.md), [`idea.md` §10](../idea.md)).
 - Rejected features F-009 through F-013 stay in §3. They are not repeated here.
 
 ## 7. Dependencies & Open Questions
@@ -261,4 +264,4 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 - [`design.md`](design.md)
 - [`system-design.md`](system-design.md)
 - [`data-model.md`](data-model.md)
-- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-006](adr/ADR-006-awareness-over-accountability.md)
+- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-006](adr/ADR-006-awareness-over-accountability.md), [ADR-007](adr/ADR-007-windows-first.md)
