@@ -50,15 +50,27 @@ test("review taps and privacy preserve the local record lifecycle", async (t) =>
         ledgerDir: () => directory, dbPath: () => file, widgetFilePath: () => widget
     }});
     t.mock.module("../windows.ts", {exports: {
-        openMain: () => {}, toggleMiniWindow: () => {}, ROUTE_PATTERN: /^(home|history|privacy)$/
+        openMain: () => {}, toggleMiniWindow: () => {}, ROUTE_PATTERN: /^(home|history|privacy)$/,
+        showBlock: () => {}, setTrayTip: () => {}
+    }});
+    t.mock.module("../companion-window.ts", {exports: {
+        currentCompanionBounds: () => ({x: 0, y: 0, width: 96, height: 96}),
+        applyCompanionBounds: () => {},
+        setCompanionShown: () => {}
     }});
     t.mock.module("../ai/runtime.ts", {exports: {
-        runtimeStatus: () => "missing-file", getJudge: () => null, runtimeSettled: Promise.resolve()
+        runtimeStatus: () => "missing-file", getJudge: () => null, runtimeSettled: Promise.resolve(),
+        modelsDir: () => directory
     }});
     t.mock.module("../ai/judge.ts", {exports: {
         MODEL_ID: "test-local-model", judgeWindow: () => {
             throw new Error("These tests must not call a model");
         }
+    }});
+    t.mock.module("../ai/coach.ts", {exports: {
+        askCoach: async () => "",
+        stopCoach: async () => {},
+        analyzeIntention: async () => null
     }});
     // Import after installing the native/window/model seams so no desktop or user store can be reached.
     const {registerIpc} = await import("../ipc.ts");
@@ -103,7 +115,7 @@ test("review taps and privacy preserve the local record lifecycle", async (t) =>
         invoke("review.tap", "first", "serves");
         const next = await remember();
         assert.equal(next.source, "model");
-        assert.equal(next.label, "unclear");
+        assert.equal(next.label, "drifts");
         assert.equal(memory()?.tap_count, 1);
         const review = invoke("review.get", "review") as Review;
         const visit = review.visits.find((v) => v.id === "first");

@@ -114,7 +114,7 @@ test("model lifecycle failures preserve fallback and release native resources", 
                 const residual = await labelWindow(session,
                     {appName: "Notepad", execName: "notepad.exe", title: "Authored notes", url: null}, recall, runtime.getJudge());
                 assert.deepEqual(residual, {
-                    source: "model", label: "unclear", memoryId: null, reason: null,
+                    source: "model", label: "drifts", memoryId: null, reason: null,
                     modelId: null, modelStage: null, latencyMs: null, confidence: null
                 });
                 const ruled = await labelWindow({...session, targets: [{target: "word", role: "work"}]},
@@ -137,7 +137,8 @@ test("model lifecycle failures preserve fallback and release native resources", 
         for (const stage of ["decide", "prompt"] as const) {
             failure = stage;
             const result = await labelWindow(session, word, () => null, judge);
-            assert.deepEqual([result.source, result.label, result.reason, result.latencyMs], ["model", "unclear", null, null]);
+            assert.deepEqual([result.source, result.label, result.reason, result.latencyMs],
+                stage === "decide" ? ["model", "drifts", null, null] : ["model", "serves", null, null]);
             assert.deepEqual([result.confidence, result.modelStage], stage === "decide" ? [null, null] : [0.9, "decide"]);
         }
     });

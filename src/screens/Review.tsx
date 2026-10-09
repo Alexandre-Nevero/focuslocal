@@ -1,7 +1,8 @@
 import {useState} from "react";
 import {ErrorNote, OutcomePair, Page} from "../components.tsx";
 import {capital, counted, dayLabel, duration, host, sourceWord, timeOfDay, timeRange} from "../format.ts";
-import {errorText, ledger, useLoad} from "../ledger.ts";
+import {errorText, go, ledger, useLoad} from "../ledger.ts";
+import type {CoachActionWire} from "../shared/types.ts";
 import {Legend, Trace} from "../trace.tsx";
 import {variantOf, variantWord} from "../trace-model.ts";
 import type {ReviewVisit} from "../shared/types.ts";
@@ -30,24 +31,26 @@ function LabelCell({visit}: {visit: ReviewVisit}) {
         return <span className="label-word quiet">Not judged</span>;
     if (variant === "judging")
         return <span className="label-word quiet">Judging…</span>;
-    if (variant === "unclear") {
-        return (
-            <div className="label-unclear">
-                <span className="label-word">Unclear. You decide.</span>
-                <span className="tap-pair" role="group" aria-label={`Label ${visit.appName}`}>
-                    <button type="button" className="btn btn-tap" disabled={busy} onClick={() => void tap("serves")}>Serves</button>
-                    <button type="button" className="btn btn-tap" disabled={busy} onClick={() => void tap("drifts")}>Drifts</button>
-                </span>
-                {error != null && <span className="label-error" role="alert">Not saved: {error}</span>}
-            </div>
-        );
-    }
 
     const source = visit.verdict?.source;
+    const flip = variant === "serves" ? "drifts" : variant === "drifts" ? "serves" : null;
+    const canCorrect = flip != null && source != null && source !== "user";
+
     return (
         <span className="label-asserted">
             <span className="label-word">{source === "user" ? `You marked it ${variant}` : variantWord[variant]}</span>
             {source != null && source !== "user" && <span className="label-source">{sourceWord(source)}</span>}
+            {canCorrect && (
+                <button
+                    type="button"
+                    className="btn btn-quiet label-correct"
+                    disabled={busy}
+                    onClick={() => void tap(flip)}
+                >
+                    Not this
+                </button>
+            )}
+            {error != null && <span className="label-error" role="alert">Not saved: {error}</span>}
         </span>
     );
 }
@@ -82,6 +85,95 @@ function VisitRow({visit, active, onActive}: {visit: ReviewVisit, active: boolea
     );
 }
 
+function actionLabel(action: CoachActionWire): string {
+    switch (action.type) {
+        case "start-block": return "Start a block";
+        case "add-block": return `Add ${action.target ?? "site"} to block`;
+        case "add-work": return `Add ${action.target ?? "site"} to work`;
+        case "open-review": return "Open that review";
+        case "open-sites": return "Open sites";
+        default: return action.type;
+    }
+}
+
+function CoachAsk({sessionId}: {sessionId: string}) {
+    const [draft, setDraft] = useState("");
+    const [reply, setReply] = useState<string | null>(null);
+    const [actions, setActions] = useState<CoachActionWire[]>([]);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const runAction = async (action: CoachActionWire) => {
+        switch (action.type) {
+            case "start-block":
+                go("declare");
+                break;
+            case "add-block":
+                if (action.target != null)
+                    await ledger.sites.save(action.target, "block");
+                break;
+            case "add-work":
+                if (action.target != null)
+                    await ledger.sites.save(action.target, "work");
+                break;
+            case "open-review":
+                if (action.sessionId != null)
+                    await ledger.windows.open(`review/${action.sessionId}`);
+                break;
+            case "open-sites":
+                await ledger.windows.open("sites");
+                break;
+            default:
+                break;
+        }
+    };
+
+    const ask = async (event: {preventDefault(): void}) => {
+        event.preventDefault();
+        const text = draft.trim();
+        if (text === "" || busy)
+            return;
+        setBusy(true);
+        setError(null);
+        try {
+            const result = await ledger.coach.ask(sessionId, text);
+            setReply(result.reply);
+            setActions(result.actions);
+            setDraft("");
+        } catch (err) {
+            setError(errorText(err));
+        }
+        setBusy(false);
+    };
+
+    return (
+        <section className="coach-ask" aria-labelledby="coach-heading">
+            <h2 id="coach-heading" className="section-title">Ask the coach</h2>
+            {reply != null && <p className="coach-reply">{reply}</p>}
+            {actions.length > 0 && (
+                <div className="coach-actions">
+                    {actions.map((action, index) => (
+                        <button key={`${action.type}-${index}`} type="button" className="btn btn-quiet" onClick={() => void runAction(action)}>
+                            {actionLabel(action)}
+                        </button>
+                    ))}
+                </div>
+            )}
+            <form className="coach-form" onSubmit={(e) => void ask(e)}>
+                <input
+                    type="text"
+                    value={draft}
+                    placeholder="Ask about this block"
+                    disabled={busy}
+                    onChange={(e) => setDraft(e.target.value)}
+                />
+                <button type="submit" className="btn" disabled={busy}>{busy ? "Asking…" : "Ask"}</button>
+            </form>
+            {error != null && <p className="label-error" role="alert">{error}</p>}
+        </section>
+    );
+}
+
 /** The record first, the finish question last (US-004, US-005, US-010, BR-007). */
 export function Review({sessionId}: {sessionId: string}) {
     const [load] = useLoad(() => ledger.review.get(sessionId), [sessionId], ["verdict:updated"]);
@@ -102,8 +194,9 @@ export function Review({sessionId}: {sessionId: string}) {
     const ordered = [...visits].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
     const attention = ordered.filter((v) => v.kind === "attention");
     const away = ordered.length - attention.length;
-    const unclear = attention.filter((v) => v.shown === "unclear").length;
     const variants = [...new Set(ordered.map(variantOf)), ...(unrecordedMs >= 1000 ? ["unrecorded" as const] : [])];
+    const reading = session.analyzedIntent?.trim() ?? "";
+    const showAnalyzedIntent = reading !== "" && reading !== session.intention.trim();
 
     return (
         <Page>
@@ -112,6 +205,7 @@ export function Review({sessionId}: {sessionId: string}) {
                     <h1 className={session.intention === "" ? "display is-empty" : "display"}>
                         {session.intention === "" ? "No intention was written for this block." : session.intention}
                     </h1>
+                    {showAnalyzedIntent && <p className="hint">Read as: {reading}</p>}
                     <p className="meta">
                         {dayLabel(session.startedAt)} · {timeRange(session.startedAt, session.endedAt)} ·{" "}
                         {counted(attention.length, "window visit")}{away > 0 ? `, ${counted(away, "stretch", "stretches")} away` : ""}
@@ -134,7 +228,6 @@ export function Review({sessionId}: {sessionId: string}) {
                 <section className="visits" aria-labelledby="visits-heading">
                     <div className="visits-head">
                         <h2 id="visits-heading" className="section-title">In the order it happened</h2>
-                        {unclear > 0 && <p className="quiet">{capital(counted(unclear, "row"))} waiting for your word.</p>}
                     </div>
                     {ordered.length === 0
                         ? <p className="empty">No windows were recorded in this block.</p>
@@ -147,6 +240,7 @@ export function Review({sessionId}: {sessionId: string}) {
                         )}
                 </section>
 
+                {session.endedAt != null && <CoachAsk sessionId={session.id} />}
                 {session.endedAt != null && <OutcomePair sessionId={session.id} outcome={session.outcome} />}
             </article>
         </Page>

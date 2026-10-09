@@ -15,7 +15,7 @@ function visit(id: string, from: number, to: number, shown: Label | null, kind: 
 
 function review(visits: ReviewVisit[], endMin: number | null): Review {
     return {
-        session: {id: "s", intention: "", startedAt: at(0), endedAt: endMin == null ? null : at(endMin), outcome: null, targets: []},
+        session: {id: "s", intention: "", analyzedIntent: null, startedAt: at(0), endedAt: endMin == null ? null : at(endMin), outcome: null, targets: []},
         visits,
         unrecordedMs: 0
     };
@@ -23,7 +23,7 @@ function review(visits: ReviewVisit[], endMin: number | null): Review {
 
 test("variants come from the shown label, away, or judging", () => {
     assert.equal(variantOf(visit("a", 0, 1, "serves")), "serves");
-    assert.equal(variantOf(visit("a", 0, 1, "unclear")), "unclear");
+    assert.equal(variantOf(visit("a", 0, 1, "unclear")), "drifts");
     assert.equal(variantOf(visit("a", 0, 1, null)), "judging");
     assert.equal(variantOf(visit("a", 0, 1, "drifts", "away")), "away");
 });

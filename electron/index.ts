@@ -3,6 +3,9 @@ import {fileURLToPath} from "node:url";
 import {app, session} from "electron";
 import {registerIpc, recoverUnfinishedSession} from "./ipc.ts";
 import {ledgerDir} from "./paths.ts";
+import {openCompanion} from "./companion-window.ts";
+import {watchPhase} from "./phase.ts";
+import {readSwitch} from "./saved-lists.ts";
 import {createTray, openMain} from "./windows.ts";
 import {startRuntime, stopRuntime} from "./ai/runtime.ts";
 import {discardJudgments, enqueueUnjudged} from "./harness/queue.ts";
@@ -67,7 +70,10 @@ else {
         createTray();
         const recovered = recoverUnfinishedSession();
         enqueueUnjudged();
+        if (readSwitch("companion"))
+            openCompanion();
         openMain(recovered != null ? `review/${recovered}` : "idle");
+        setInterval(() => watchPhase(), 5000);
         // After the windows show, so Start never waits on the model (US-001).
         void startRuntime();
     });

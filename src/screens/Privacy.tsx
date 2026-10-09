@@ -1,4 +1,5 @@
 import {ConfirmStep, ErrorNote, Page} from "../components.tsx";
+import {Switches} from "./Switches.tsx";
 import {capital, counted, dayLabel, timeOfDay} from "../format.ts";
 import {go, ledger, useLoad} from "../ledger.ts";
 import type {Privacy as PrivacyFacts} from "../shared/types.ts";
@@ -17,6 +18,7 @@ function modelLine({modelId, modelStatus}: PrivacyFacts) {
 /** What the app ran and where the file is, stated as facts the person can check (US-008, US-009). */
 export function Privacy() {
     const [load, reload] = useLoad(() => ledger.privacy.get(), []);
+    const [settings, reloadSettings] = useLoad(() => ledger.settings.get(), []);
 
     return (
         <Page current="privacy">
@@ -28,6 +30,14 @@ export function Privacy() {
             {load.state === "error" && <ErrorNote title="The local file could not be read." error={load.error} />}
             {load.state === "ready" && (
                 <>
+                    {settings.state === "ready" && (
+                        <Switches
+                            judge={settings.value.judge}
+                            coach={settings.value.coach}
+                            companion={settings.value.companion}
+                            onChange={(key, on) => void ledger.settings.set(key, on).then(() => reloadSettings())}
+                        />
+                    )}
                     <dl className="spec spec-sheet">
                         <div>
                             <dt>Network</dt>
@@ -45,8 +55,8 @@ export function Privacy() {
                             <dt>Display bar</dt>
                             <dd>
                                 {load.value.tau == null
-                                    ? "No eval has set a bar yet, so every model label shows as Unclear."
-                                    : `A model label shows only at confidence ${load.value.tau} or above. Below that it shows as Unclear.`}
+                                    ? "No eval has set a bar yet. The review shows the label Decider stored."
+                                    : `The review shows the label Decider stored. The eval bar is ${load.value.tau}.`}
                             </dd>
                         </div>
                         <div>

@@ -29,6 +29,7 @@ export function Idle() {
                     <button type="button" className="link" onClick={() => void ledger.windows.open("history")}>
                         History{rows.length > 0 ? ` · ${capital(counted(rows.length, "block"))}` : ""}
                     </button>
+                    <button type="button" className="link" onClick={() => void ledger.windows.open("sites")}>Sites</button>
                     <button type="button" className="link" onClick={() => void ledger.windows.open("privacy")}>Privacy</button>
                 </nav>
             </div>

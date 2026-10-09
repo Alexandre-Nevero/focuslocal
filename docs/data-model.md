@@ -6,7 +6,7 @@ doc: data-model
 owns: entities and their relationships · per-field types, nullability and defaults · keys, constraints and indexes · schema migration and rollback
 ---
 
-# Data Model / Schema — Twofold
+# Data Model / Schema — Ledger
 
 > **Purpose:** the local file. Classification policy is not defined here. No `security.md` is in this set. The Class column uses two provisional tags, `internal` and `on-device private`, and does not pretend those tags are a retention policy.
 
@@ -44,14 +44,15 @@ Class `on-device private` means the field can name a person's document or accoun
 |-------|------|-------|---------|-------|-------------|
 | `id` | text | no | generated | internal | Primary key. Not reused. |
 | `intention` | text | no | `''` | on-device private | The sentence. Empty is a real state (US-001). |
+| `analyzed_intent` | text | yes | null | on-device private | The one on-device reading Decider judges. Null if unread, empty intention, or the reading failed. The typed sentence stays in `intention`. |
 | `started_at` | text | no | — | internal | ISO-8601 start. |
 | `ended_at` | text | yes | null | internal | Null while the session runs. |
 | `outcome` | text | yes | null | internal | `yes`, `not_yet`, or `unanswered`. Null until the review closes. |
-| `cycle_mode` | text | yes | null | internal | `timed`, `open`, or `none`. Null on sessions from before this column. |
-| `cycle_work_min` | integer | yes | null | internal | Work minutes in one cycle. |
-| `cycle_break_min` | integer | yes | null | internal | Break minutes between work periods. |
-| `cycle_count` | integer | yes | null | internal | 1 to 8. A timed length is `count × work + (count − 1) × break`. |
-| `planned_minutes` | integer | yes | null | internal | The length above, stored so the end does not recompute it. Null when the mode is `open` or `none`. |
+| `work_min` | integer | yes | null | internal | Work minutes in one cycle. Null when the session has no cycle. |
+| `break_min` | integer | yes | null | internal | Break minutes between work periods. |
+| `cycle_count` | integer | yes | null | internal | Number of work periods in the planned cycle. |
+| `phase` | text | yes | null | internal | `work` or `break` while a cycle runs. Null when no phase is active. |
+| `phase_ends_at` | text | yes | null | internal | ISO-8601 when the current phase ends. Null when `phase` is null. |
 
 ### Declared target
 
@@ -62,7 +63,7 @@ Class `on-device private` means the field can name a person's document or accoun
 | `id` | text | no | generated | internal | Primary key. |
 | `session_id` | text | no | — | internal | The session this list belongs to. |
 | `target` | text | no | — | on-device private | App name or site, as the person typed it. |
-| `role` | text | no | — | internal | `work` or `distraction`. `distraction` is what this session blocks. |
+| `role` | text | no | — | internal | `work` or `distraction`. |
 
 ### Saved target
 
@@ -70,9 +71,8 @@ Class `on-device private` means the field can name a person's document or accoun
 
 | Field | Type | Null? | Default | Class | Description |
 |-------|------|-------|---------|-------|-------------|
-| `id` | text | no | generated | internal | Primary key. |
-| `target` | text | no | — | on-device private | App name or site. Unique. |
-| `role` | text | no | — | internal | `work` or `distraction`. |
+| `target` | text pk | no | — | on-device private | App name or site. Primary key. |
+| `role` | text | no | — | internal | `work` or `block`. |
 
 The popup copies these into `declared_target` for one session. Editing the popup does not write this table. The Sites screen does. See [ADR-012](adr/ADR-012-meant-loop-on-device.md).
 
@@ -83,11 +83,10 @@ The popup copies these into `declared_target` for one session. Editing the popup
 | Field | Type | Null? | Default | Class | Description |
 |-------|------|-------|---------|-------|-------------|
 | `id` | text | no | generated | internal | Primary key. |
-| `session_id` | text | no | — | internal | The running session. |
-| `app_name` | text | no | — | on-device private | The app that came to the front. |
-| `window_title` | text | yes | null | on-device private | Null when the OS did not provide one. |
-| `url` | text | yes | null | on-device private | Set for a site. Null for a desktop app. |
-| `at` | text | no | — | internal | ISO-8601. There is no duration column. |
+| `session_id` | text | no | — | internal | The session where the reach happened. |
+| `target` | text | no | — | on-device private | The blocked app or site that was reached. |
+| `kind` | text | no | — | internal | `site` or `app`. |
+| `reached_at` | text | no | — | internal | ISO-8601. There is no duration column. At most one row per target per session. |
 
 ### Visit
 
@@ -104,7 +103,7 @@ The popup copies these into `declared_target` for one session. Editing the popup
 | `last_seen_at` | text | no | — | internal | ISO-8601 timestamp of latest tick seen frontmost. |
 | `started_at` | text | no | — | internal | ISO-8601. |
 | `ended_at` | text | yes | null | internal | Null on the open visit. |
-| `kind` | text | no | — | internal | `attention`, `away`, or `break`. A break is the cycle's pause. It is not judged. |
+| `kind` | text | no | — | internal | `attention` or `away`. |
 
 ### Verdict
 
@@ -118,11 +117,11 @@ The popup copies these into `declared_target` for one session. Editing the popup
 | `memory_vote_id` | text | yes | null | internal | Current distinct-visit learning contribution to a memory row. Internal only; not exposed as public `Verdict.memoryId`. |
 | `source` | text | no | — | internal | `rule`, `memory`, `model`, or `user`. |
 | `label` | text | no | — | internal | `serves`, `drifts`, or `unclear`. |
-| `reason` | text | yes | null | internal | Null on a new model verdict ([ADR-011](adr/ADR-011-coach-companion-and-system-one.md)). Older rows may still hold the agreement-pass text. |
+| `reason` | text | yes | null | internal | Short text from the model, or null for a rule. |
 | `model_id` | text | yes | null | internal | Set when source is `model`. |
-| `model_stage` | text | yes | null | internal | New model verdicts store `decide`. The check still allows `reason` so older rows stay valid. |
+| `model_stage` | text | yes | null | internal | `decide` or `reason` (check `model_stage IN ('decide', 'reason')`). Set when source is `model`. |
 | `latency_ms` | integer | yes | null | internal | Set when a model call returned. Not a budget. |
-| `confidence` | real | yes | null | internal | System One confidence when the source is model. Null for a rule, for memory, and for a user tap. The review does not treat this as a score (BR-006). |
+| `confidence` | real | yes | null | internal | S1 confidence when model; null for rule and user. The review does not treat this as a score (BR-006). |
 
 `reason` is easy to fill with a title by accident. Harness must not copy `window_title` or `url` into it. The review already shows those from the visit.
 
@@ -146,7 +145,7 @@ The popup copies these into `declared_target` for one session. Editing the popup
 | `id` | text | no | generated | internal | Primary key. |
 | `session_id` | text | no | — | internal | The ended session this turn is about. |
 | `role` | text | no | — | internal | `user` or `assistant`. |
-| `content` | text | no | — | on-device private | What was said. The user's turn can quote a window. It stays in the local file (BR-005). |
+| `text` | text | no | — | on-device private | What was said. The user's turn can quote a window. It stays in the local file (BR-005). |
 | `created_at` | text | no | — | internal | ISO-8601. |
 
 A turn exists only for a session that has ended. Drop memory does not delete these rows. Deleting the file does.
@@ -169,8 +168,8 @@ A turn exists only for a session that has ended. Drop memory does not delete the
 
 | Field | Type | Null? | Default | Class | Description |
 |-------|------|-------|---------|-------|-------------|
-| `key` | text pk | no | — | internal | Setting key, e.g. `tau`. |
-| `value` | text | no | — | internal | Setting value string. |
+| `key` | text pk | no | — | internal | `tau`, or a feature switch: `judge`, `coach`, `companion`. |
+| `value` | text | no | — | internal | For `tau`, the threshold string. For a switch, `on` or `off`. A missing switch row means on. |
 
 ### Schema migration
 
@@ -208,7 +207,7 @@ The authored set currently has 18 serves, 18 drifts, and 9 unclear residual case
 | `got_label` | text | no | — | internal | The label that came back. |
 | `confidence` | real | yes | null | internal | Confidence score if model evaluated. |
 | `model_id` | text | yes | null | internal | Model identifier when model ran. |
-| `model_stage` | text | yes | null | internal | `decide` for a new run. `reason` remains valid for an older run. |
+| `model_stage` | text | yes | null | internal | `decide` or `reason` if model ran. |
 | `ran_at` | text | no | — | internal | ISO-8601. A missing row means US-009 shows "not run". |
 
 No field is stored for a future dashboard. Model-call count is a count of `verdict` where `source = 'model'`. Coach-turn count is a count of `coach_turn`.
@@ -219,12 +218,18 @@ No field is stored for a future dashboard. Model-call count is a count of `verdi
 |--------|--------------------|------|---------------|
 | Session | `pk_session` | primary key | Identity |
 | Session | `ck_session_outcome` | check | Null, `yes`, `not_yet`, or `unanswered` |
+| Session | `ck_session_phase` | check | Null, `work`, or `break` |
 | Session | `ux_session_one_running` | unique (`(1)`) where `ended_at IS NULL` | Only one session can run at a time |
-| Verdict | `ck_verdict_model_stage` | check | `model_stage` is null or in (`decide`, `reason`). New writes use `decide`. |
+| Saved target | `pk_saved_target` | primary key (`target`) | Identity |
+| Saved target | `ck_saved_role` | check | `role` is `work` or `block` |
+| Block hit | `pk_block_hit` | primary key | Identity |
+| Block hit | `fk_hit_session` | foreign key, on delete cascade | Hits die with the session |
+| Block hit | `ck_hit_kind` | check | `kind` is `site` or `app` |
+| Block hit | `uq_block_hit_once` | unique (`session_id`, `target`) | One reach record per blocked target in a session |
+| Coach turn | `pk_coach_turn` | primary key | Identity |
 | Coach turn | `fk_coach_session` | foreign key, on delete cascade | Turns die with the session |
 | Coach turn | `ck_coach_role` | check | `role` is `user` or `assistant` |
-| Saved target | `uq_saved_target` | unique (`target`) | One row per app or site |
-| Block hit | `fk_hit_session` | foreign key, on delete cascade | Hits die with the session |
+| Verdict | `ck_verdict_model_stage` | check | `model_stage` is null or in (`decide`, `reason`) |
 | Browser tab | `pk_browser_tab` | primary key (`id`) | Identity |
 | Browser tab | `ck_browser_tab_id` | check | `id = 1` |
 | Setting | `pk_setting` | primary key (`key`) | Identity |
@@ -250,7 +255,8 @@ No field is stored for a future dashboard. Model-call count is a count of `verdi
 
 - **Migration mechanism:** ordered SQL files (`electron/store/migrations/*.sql`) applied by Store at launch in filename order, recorded in `schema_migration(name, applied_at)`.
 - **Migration `003_memory_votes.sql`:** adds the nullable contribution FK and its index, then sets existing `memory.tap_count` to 0. Old aggregates cannot recover distinct supporting visits. Sessions, visits, memory labels, and historical verdict labels are retained; old memory needs fresh support before eligibility returns.
-- **Migration owed, not written:** `coach_turn`, `saved_target`, `block_hit`, and the cycle columns on `session`. Do not drop `reason` or the `reason` value of `model_stage`. Old verdicts keep them. Preset keywords are a file beside the app, not a table. The switches are rows in `setting`.
+- **Migration `006_analyzed_intent.sql`:** adds nullable `analyzed_intent` on `session`.
+- **Migration `007_meant_loop.sql`:** adds cycle columns on `session`, and tables `saved_target`, `block_hit`, and `coach_turn`. Preset keywords are a file beside the app, not a table. The switches are rows in `setting` (`judge`, `coach`, `companion`; value `on` or `off`; a missing row means on).
 - **Learning lifecycle:** a transaction writes the user's verdict and assigns its current contribution. Repeating the same label on the same visit does not increment support. A conflicting label clears that key's contribution links and resets its count before counting the current visit as 1. Other visits' historical labels remain unchanged; they can be tapped again to support the new label. Dropping memory clears both optional FKs through `ON DELETE SET NULL`, so the same visits can reteach after forgetting. This is current support, not lifetime deduplication ([ADR-010](adr/ADR-010-backend-work-ownership.md)).
 - **How a change rolls out:** add a column or table, use it, then remove the old shape in a later build. Do not rename a column in one step.
 - **Backfill strategy:** one local file, so a backfill is a single pass at launch. There is no fleet to watch.
@@ -259,7 +265,7 @@ No field is stored for a future dashboard. Model-call count is a count of `verdi
 
 ## 5. Doc Integrity Check
 
-- [x] Every entity in §1 has a field table, and every field table is in the diagram. `browser_tab`, `setting`, and `schema_migration` have no relationships. `coach_turn` belongs to a session.
+- [x] Every entity in §1 has a field table, and every field table is in the diagram. `browser_tab`, `setting`, `schema_migration`, and `saved_target` have no relationships. `coach_turn` belongs to a session.
 - [x] Every field has a SQLite type and an explicit nullability.
 - [x] `on-device private` is a provisional tag. It does not define a retention rule. `security.md` is absent.
 - [x] Every relationship has a foreign key and an on-delete behavior. Both nullable memory links use set null, matching their optional edges in §1; source attribution and current contribution are distinct.

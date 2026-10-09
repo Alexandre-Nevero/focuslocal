@@ -8,9 +8,29 @@ import {Mini} from "./screens/Mini.tsx";
 import {Permissions} from "./screens/Permissions.tsx";
 import {Privacy} from "./screens/Privacy.tsx";
 import {Review} from "./screens/Review.tsx";
+import {BlockNotice} from "./screens/BlockNotice.tsx";
+import {Companion} from "./screens/Companion.tsx";
 import {Running} from "./screens/Running.tsx";
+import {Sites} from "./screens/Sites.tsx";
 
 // Routes and their screens: docs/design.md §2. Data: window.ledger (src/shared/types.ts LedgerApi) and nothing else.
+
+function SitesScreen() {
+    const [lists, reload] = useLoad(() => ledger.sites.list(), []);
+    if (lists.state !== "ready")
+        return <main className="page"><p className="status">Reading saved lists…</p></main>;
+    const {work, block} = lists.value;
+    return (
+        <main className="page">
+            <Sites
+                work={work}
+                block={block}
+                onAdd={(role, target) => void ledger.sites.save(target, role).then(() => reload())}
+                onRemove={(target) => void ledger.sites.remove(target).then(() => reload())}
+            />
+        </main>
+    );
+}
 
 function useHashRoute() {
     const [route, setRoute] = useState(() => window.location.hash.replace(/^#\/?/, ""));
@@ -33,6 +53,17 @@ export function App() {
 
     if (name === "mini")
         return <Mini session={session} />;
+
+    if (name === "companion")
+        return <Companion />;
+
+    if (name === "block") {
+        const intention = session.state === "ready" && session.value != null ? session.value.intention : "";
+        return <BlockNotice intention={intention === "" ? "No intention written" : intention} />;
+    }
+
+    if (name === "sites")
+        return <SitesScreen />;
 
     // A running block owns the popover: idle, declare, and running all show it until it ends.
     const running = session.state === "ready" ? session.value : null;

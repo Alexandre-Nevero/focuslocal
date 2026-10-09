@@ -19,6 +19,10 @@ const modelPath = () => (app.isPackaged
     ? path.join(process.resourcesPath, "models", MODEL_FILE)
     : path.join(process.env.APP_ROOT, "models", MODEL_FILE));
 
+export function modelsDir() {
+    return path.dirname(modelPath());
+}
+
 /** Loads in the background. Start, End, and the review never wait on it (US-001); if it fails, Harness stores unclear (BR-003). */
 export async function startRuntime() {
     started = true;
