@@ -42,6 +42,7 @@ The boundary is the machine. There is no account server and no model API on the 
 | Widgets | Tray, mini window, desktop layer. Show the running session. | Nothing. Reads the session only. | Store | F-001 |
 | Coach | Talk about one ended session, from figures Store already has. | Coach turns. Not verdicts. | Store, local model runtime | F-011 |
 | Companion | The pet. Drag, hover, tap. While a session runs, the popup is the running view plus "This isn't the work". | The pet's position. A tap goes to Harness. | Store, Harness, Coach | F-014, F-011 |
+| Blocker | Stop a site or hide a desktop app on today's block list. Record the reach. | Block hits. Not durations. | Capture, the extension, Store | F-009 |
 
 SessionUI does not write verdicts. A tap goes to Harness, including "This isn't the work" on the companion. Eval does not write user visits. Fixtures stay in the eval set. Widgets, the companion, and the extension popup never show verdicts. The coach does not run while a session is open.
 
@@ -125,7 +126,7 @@ The probe, so it is not mistaken for a budget. On 2026-10-09, `SystemLanguageMod
 ## 8. Doc Integrity Check
 
 - [x] Each component names what it owns. SessionUI owns the outcome. Capture owns visit boundaries. Harness owns verdicts and memory. Eval owns eval results. Store owns the file. Coach owns coach turns. Companion owns the pet's position. NativeHost and Widgets own nothing.
-- [x] Every Must and Should feature appears in §2. F-009, F-010, F-012, and F-013 are Won't and have no component. F-011 is Coach. F-014 is Companion.
+- [x] Every Must and Should feature appears in §2. F-010, F-012, and F-013 are Won't and have no component. F-009 is Blocker. F-011 is Coach. F-014 is Companion. F-015, F-016, and F-017 are the popup cycle, the saved lists, and the presets, specified in [ADR-012](adr/ADR-012-meant-loop-on-device.md). F-018 is three rows in `setting`.
 - [x] Each technology row names a rejected alternative and an authority. The shell and runtime are chosen in ADR-003, not a silent default.
 - [x] Each integration names a failure mode and the behavior.
 - [x] There is no network-exposed surface to hand to a security doc. The native host speaks stdio; there is no localhost API.
@@ -346,6 +347,6 @@ While a session runs, the popup shows the intention, the clock, End, and "This i
 - [`prd.md`](prd.md)
 - [`data-model.md`](data-model.md)
 - [`idea.md`](../idea.md)
-- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-005](adr/ADR-005-system-one-plus-slm.md), [ADR-011](adr/ADR-011-coach-companion-and-system-one.md)
+- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-005](adr/ADR-005-system-one-plus-slm.md), [ADR-011](adr/ADR-011-coach-companion-and-system-one.md), [ADR-012](adr/ADR-012-meant-loop-on-device.md)
 - Research: branch `research/ledger-stack`.
 - `quality.md`, `security.md`, and `api.md` are not in this doc set. See [`context.md`](../context.md).

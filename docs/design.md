@@ -12,7 +12,7 @@ implementation_status: specification only; not a claim that these screens or rou
 
 # Design — Twofold
 
-> **Design decision:** The warm-cream dashboard image selected by Alexandre on 2026-10-10 is the **visual target** for Twofold. The product remains the offline desktop session review specified in [`prd.md`](prd.md), not the MEANT web product that supplied some layout patterns.
+> **Design decision:** The warm-cream dashboard image selected by Alexandre on 2026-10-10 is the **visual target** for Twofold. The product remains the offline desktop session review specified in [`prd.md`](prd.md). [ADR-012](adr/ADR-012-meant-loop-on-device.md) adopts MEANT's loop: the start popup, the blocker, the cycle, saved lists, presets, and a day timeline beside the month of rows. It does not adopt MEANT's account, its donut, or its fidelity percentage. Those fight F-012 and BR-006.
 >
 > **Scope boundary:** The selected image approves visual direction, composition, brand treatment, and the dashboard's information hierarchy as a design exploration. It **does not silently override** the PRD's accepted rules, invent backend data, authorize cloud functionality, or prove that the UI exists. Conflicts are explicitly tracked in §2 and §15.
 
@@ -197,7 +197,11 @@ The **current** renderer (`src/App.tsx`) contains route headings only. `electron
 | Privacy | Local model/source/file facts and delete actions | Existing `app://privacy` | Local, no account |
 | Mini | Intention and clock only | Existing `app://mini` | Local, no account |
 | Companion | The coach's character. Drag, hover, tap opens the popup (US-012) | **SPECIFIED, not built.** New window, not a route inside the main window. See [ADR-011](adr/ADR-011-coach-companion-and-system-one.md). | Local, no account |
-| Coach | One ended session, from computed figures (US-011) | **SPECIFIED, not built.** Opens from the companion when idle, and from the review. | Local, no account |
+| Coach | One ended session, from computed figures (US-011). A suggestion needs a button. | **SPECIFIED, not built.** Opens from the companion when idle, and from the review. | Local, no account |
+| Declare popup | Intention, cycle, where it happens, what to block, Start (US-001, US-014, US-016) | Existing `app://declare`. The fields in [ADR-012](adr/ADR-012-meant-loop-on-device.md) are specified, not all built. | Local, no account |
+| Sites | Saved work list and block list (US-015) | **SPECIFIED, not built.** | Local, no account |
+| Block window | Intention and "That's still true." No duration. | **SPECIFIED, not built.** | Local, no account |
+| Day | One day's sessions on the review trace (US-007) | **SPECIFIED, not built.** Not a score dashboard. | Local, no account |
 | macOS desktop widget | Read-only intention and clock | PRD planned, not a current renderer route | Local, no account |
 | Browser extension popup | Read-only intention and clock | PRD planned, not a current renderer route | Local, no account |
 

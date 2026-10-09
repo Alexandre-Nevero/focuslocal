@@ -17,6 +17,8 @@ owns: entities and their relationships · per-field types, nullability and defau
 ```mermaid
 erDiagram
   SESSION ||--o{ DECLARED_TARGET : "lists"
+  SESSION ||--o{ BLOCK_HIT : "reached"
+  SAVED_TARGET
   SESSION ||--o{ VISIT : "contains"
   SESSION ||--o{ COACH_TURN : "discussed in"
   VISIT ||--o| VERDICT : "labeled by"
@@ -45,6 +47,11 @@ Class `on-device private` means the field can name a person's document or accoun
 | `started_at` | text | no | — | internal | ISO-8601 start. |
 | `ended_at` | text | yes | null | internal | Null while the session runs. |
 | `outcome` | text | yes | null | internal | `yes`, `not_yet`, or `unanswered`. Null until the review closes. |
+| `cycle_mode` | text | yes | null | internal | `timed`, `open`, or `none`. Null on sessions from before this column. |
+| `cycle_work_min` | integer | yes | null | internal | Work minutes in one cycle. |
+| `cycle_break_min` | integer | yes | null | internal | Break minutes between work periods. |
+| `cycle_count` | integer | yes | null | internal | 1 to 8. A timed length is `count × work + (count − 1) × break`. |
+| `planned_minutes` | integer | yes | null | internal | The length above, stored so the end does not recompute it. Null when the mode is `open` or `none`. |
 
 ### Declared target
 
@@ -55,7 +62,32 @@ Class `on-device private` means the field can name a person's document or accoun
 | `id` | text | no | generated | internal | Primary key. |
 | `session_id` | text | no | — | internal | The session this list belongs to. |
 | `target` | text | no | — | on-device private | App name or site, as the person typed it. |
+| `role` | text | no | — | internal | `work` or `distraction`. `distraction` is what this session blocks. |
+
+### Saved target
+
+**Stored in:** SQLite table `saved_target` · **Written by:** Sites, via Store
+
+| Field | Type | Null? | Default | Class | Description |
+|-------|------|-------|---------|-------|-------------|
+| `id` | text | no | generated | internal | Primary key. |
+| `target` | text | no | — | on-device private | App name or site. Unique. |
 | `role` | text | no | — | internal | `work` or `distraction`. |
+
+The popup copies these into `declared_target` for one session. Editing the popup does not write this table. The Sites screen does. See [ADR-012](adr/ADR-012-meant-loop-on-device.md).
+
+### Block hit
+
+**Stored in:** SQLite table `block_hit` · **Written by:** Blocker, via Store
+
+| Field | Type | Null? | Default | Class | Description |
+|-------|------|-------|---------|-------|-------------|
+| `id` | text | no | generated | internal | Primary key. |
+| `session_id` | text | no | — | internal | The running session. |
+| `app_name` | text | no | — | on-device private | The app that came to the front. |
+| `window_title` | text | yes | null | on-device private | Null when the OS did not provide one. |
+| `url` | text | yes | null | on-device private | Set for a site. Null for a desktop app. |
+| `at` | text | no | — | internal | ISO-8601. There is no duration column. |
 
 ### Visit
 
@@ -72,7 +104,7 @@ Class `on-device private` means the field can name a person's document or accoun
 | `last_seen_at` | text | no | — | internal | ISO-8601 timestamp of latest tick seen frontmost. |
 | `started_at` | text | no | — | internal | ISO-8601. |
 | `ended_at` | text | yes | null | internal | Null on the open visit. |
-| `kind` | text | no | — | internal | `attention` or `away`. |
+| `kind` | text | no | — | internal | `attention`, `away`, or `break`. A break is the cycle's pause. It is not judged. |
 
 ### Verdict
 
@@ -191,6 +223,8 @@ No field is stored for a future dashboard. Model-call count is a count of `verdi
 | Verdict | `ck_verdict_model_stage` | check | `model_stage` is null or in (`decide`, `reason`). New writes use `decide`. |
 | Coach turn | `fk_coach_session` | foreign key, on delete cascade | Turns die with the session |
 | Coach turn | `ck_coach_role` | check | `role` is `user` or `assistant` |
+| Saved target | `uq_saved_target` | unique (`target`) | One row per app or site |
+| Block hit | `fk_hit_session` | foreign key, on delete cascade | Hits die with the session |
 | Browser tab | `pk_browser_tab` | primary key (`id`) | Identity |
 | Browser tab | `ck_browser_tab_id` | check | `id = 1` |
 | Setting | `pk_setting` | primary key (`key`) | Identity |
@@ -216,7 +250,7 @@ No field is stored for a future dashboard. Model-call count is a count of `verdi
 
 - **Migration mechanism:** ordered SQL files (`electron/store/migrations/*.sql`) applied by Store at launch in filename order, recorded in `schema_migration(name, applied_at)`.
 - **Migration `003_memory_votes.sql`:** adds the nullable contribution FK and its index, then sets existing `memory.tap_count` to 0. Old aggregates cannot recover distinct supporting visits. Sessions, visits, memory labels, and historical verdict labels are retained; old memory needs fresh support before eligibility returns.
-- **Migration owed, not written:** `coach_turn`, as specified above. Do not drop `reason` or the `reason` value of `model_stage`. Old verdicts keep them.
+- **Migration owed, not written:** `coach_turn`, `saved_target`, `block_hit`, and the cycle columns on `session`. Do not drop `reason` or the `reason` value of `model_stage`. Old verdicts keep them. Preset keywords are a file beside the app, not a table. The switches are rows in `setting`.
 - **Learning lifecycle:** a transaction writes the user's verdict and assigns its current contribution. Repeating the same label on the same visit does not increment support. A conflicting label clears that key's contribution links and resets its count before counting the current visit as 1. Other visits' historical labels remain unchanged; they can be tapped again to support the new label. Dropping memory clears both optional FKs through `ON DELETE SET NULL`, so the same visits can reteach after forgetting. This is current support, not lifetime deduplication ([ADR-010](adr/ADR-010-backend-work-ownership.md)).
 - **How a change rolls out:** add a column or table, use it, then remove the old shape in a later build. Do not rename a column in one step.
 - **Backfill strategy:** one local file, so a backfill is a single pass at launch. There is no fleet to watch.
