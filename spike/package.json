@@ -1,0 +1,13 @@
+{
+  "name": "ledger-smoke-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "spike": "node fetch-model.mjs && electron main.mjs"
+  },
+  "dependencies": {
+    "@miniben90/x-win": "^3.7.0",
+    "electron": "^44.7.0",
+    "node-llama-cpp": "^3.22.1"
+  }
+}
