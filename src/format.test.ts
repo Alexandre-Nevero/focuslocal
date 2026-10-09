@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {capital, clock, counted, countWord, duration, host, outcomeWord, sourceWord} from "./format.ts";
+import {capital, clock, counted, countWord, duration, host, latency, minutes, modelStatusWord, outcomeWord, sourceWord} from "./format.ts";
 
 // US-007 and BR-006: counts are words, and nothing formats a percent, a rate, or an hours headline.
 
@@ -25,6 +25,12 @@ test("durations are per-row lengths, never a percent", () => {
     assert.equal(duration(65 * 60_000), "1 h 5 min");
     for (const ms of [0, 59_999, 3_600_000, 86_400_000])
         assert.doesNotMatch(duration(ms), /%|hours focused/);
+});
+
+test("figure-column totals keep zero exact", () => {
+    assert.equal(minutes(0), "0 min");
+    assert.equal(minutes(20_000), "<1 min");
+    assert.equal(minutes(23 * 60_000), "23 min");
 });
 
 test("the clock shows elapsed time and never goes negative", () => {
@@ -52,4 +58,14 @@ test("host strips www and survives junk", () => {
     assert.equal(host("https://www.youtube.com/watch?v=1"), "youtube.com");
     assert.equal(host("not a url"), null);
     assert.equal(host(null), null);
+});
+
+
+test("model status and latency read as plain words", () => {
+    assert.equal(modelStatusWord("ready"), "Ready");
+    assert.equal(modelStatusWord("loading"), "Getting ready");
+    assert.equal(modelStatusWord("missing-file"), "Not available");
+    assert.equal(modelStatusWord("failed:oom"), "Not available");
+    assert.equal(latency(412.4), "412 ms");
+    assert.equal(latency(1450), "1.4 s");
 });

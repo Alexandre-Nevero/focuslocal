@@ -5,7 +5,7 @@ import type {DeclaredTarget, Permissions} from "../shared/types.ts";
 
 const granted = (p: Permissions) => p.screen === "granted" && p.accessibility === "granted";
 
-/** Today's lists carry over from a block started earlier today, so a second block does not retype them. */
+/** Today's lists carry over from a session started earlier today, so a second session does not retype them. */
 async function todaysTargets(): Promise<DeclaredTarget[]> {
     const rows = await ledger.history.list();
     const last = rows.find((row) => row.endedAt != null);
@@ -72,7 +72,7 @@ export function Declare() {
             <form className="declare-form" onSubmit={(e) => void start(e)}>
                 {/* First, so the reason Start is disabled is on screen in the 420px popover. */}
                 {permissions.state === "ready" && !allowed && (
-                    <ErrorNote title="Ledger cannot see windows yet.">
+                    <ErrorNote title="Twofold cannot see windows yet.">
                         Without the permission nothing is recorded.{" "}
                         <button type="button" className="link" onClick={() => go("permissions")}>Set up the permission</button>
                     </ErrorNote>
@@ -100,7 +100,7 @@ export function Declare() {
                     title="Work today"
                     items={work}
                     onChange={setOnly("work")}
-                    hint="Apps or sites that are the work. Ledger labels these without asking the model."
+                    hint="Apps or sites that are the work. Twofold labels these without asking the model."
                     placeholder="figma, docs.google.com"
                 />
                 <ListEditor
@@ -113,11 +113,11 @@ export function Declare() {
                 />
 
                 {permissions.state === "error" && <ErrorNote title="The permission state could not be read." error={permissions.error} />}
-                {error != null && <ErrorNote title="The block did not start." error={error} />}
+                {error != null && <ErrorNote title="The session did not start." error={error} />}
 
                 <div className="declare-actions">
                     <button type="submit" className="btn btn-primary btn-block" disabled={!allowed || starting}>
-                        {starting ? "Starting…" : "Start"}
+                        {starting ? "Starting…" : "Start session"}
                     </button>
                     <button type="button" className="link" onClick={() => go("idle")}>Back</button>
                 </div>

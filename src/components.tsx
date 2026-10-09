@@ -1,47 +1,256 @@
-import {useId, useState, type ReactNode} from "react";
-import {clock} from "./format.ts";
-import {errorText, go, ledger, useNow} from "./ledger.ts";
-import type {Outcome, Role} from "./shared/types.ts";
+import {useEffect, useId, useRef, useState, type ReactNode} from "react";
+import {capital, clock, modelStatusWord} from "./format.ts";
+import {errorText, go, ledger, useLoad, useNow} from "./ledger.ts";
+import {containsDay, dayKey, parseDayKey, periodShort, shiftPeriod, startOfDay, type Period} from "./period.ts";
+import type {Outcome, PeriodMode, Role, Route} from "./shared/types.ts";
 
-export function CloseIcon() {
+/* ---------- Icons: one 16px grid, 1.6 stroke, round joins ---------- */
+
+function Icon({children, size = 16}: {children: ReactNode, size?: number}) {
     return (
-        <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
-            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+        <svg
+            viewBox="0 0 16 16"
+            width={size}
+            height={size}
+            aria-hidden="true"
+            focusable="false"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >{children}
         </svg>
     );
 }
 
-/** Slim bar for the main window's reading screens. */
-export function TopBar({current}: {current?: "history" | "privacy"}) {
+export const CloseIcon = () => <Icon size={12}><path d="M4 4l8 8M12 4l-8 8" /></Icon>;
+export const ChevronLeftIcon = () => <Icon><path d="M10 3.5L5.5 8l4.5 4.5" /></Icon>;
+export const ChevronRightIcon = () => <Icon><path d="M6 3.5L10.5 8 6 12.5" /></Icon>;
+export const ArrowRightIcon = () => <Icon size={14}><path d="M3 8h10M9 4l4 4-4 4" /></Icon>;
+export const PlusIcon = () => <Icon size={14}><path d="M8 3v10M3 8h10" /></Icon>;
+export const CalendarIcon = () => (
+    <Icon>
+        <rect x="2.5" y="3.5" width="11" height="10" rx="2" />
+        <path d="M2.5 7h11M5.5 2v3M10.5 2v3" />
+    </Icon>
+);
+/** Two sliders: the local Settings page (privacy facts and data removal), not an account. */
+export const SettingsIcon = () => (
+    <Icon size={18}>
+        <path d="M2.5 5h6M12 5h1.5M2.5 11H4M7.5 11h6" />
+        <circle cx="10.25" cy="5" r="1.75" />
+        <circle cx="5.75" cy="11" r="1.75" />
+    </Icon>
+);
+
+/* ---------- Brand: contour mark and split wordmark (docs/design.md §3.2, §3.3) ---------- */
+
+/** Clockwise arc on the 64px master, degrees from twelve o'clock. */
+function arc(r: number, from: number, to: number) {
+    const point = (deg: number) => {
+        const a = (deg * Math.PI) / 180;
+        return `${(32 + r * Math.sin(a)).toFixed(2)} ${(32 - r * Math.cos(a)).toFixed(2)}`;
+    };
+    return `M ${point(from)} A ${r} ${r} 0 ${to - from > 180 ? 1 : 0} 1 ${point(to)}`;
+}
+
+const INNER_ARCS = [arc(15, 20, 170), arc(15, 185, 275), arc(15, 290, 365)];
+
+/** One whole intention around a broken observed trace. Static: never animated, never tied to data. */
+export function BrandMark({size = 32}: {size?: number}) {
+    return (
+        <svg className="brand-mark" viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" focusable="false">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="var(--tf-accent)" strokeWidth="6" />
+            {INNER_ARCS.map((d) => <path key={d} d={d} fill="none" stroke="var(--tf-ink)" strokeWidth="6" />)}
+        </svg>
+    );
+}
+
+export function Wordmark({size = "md"}: {size?: "sm" | "md"}) {
+    return (
+        <span className={`wordmark-split wordmark-${size}`} aria-hidden="true">
+            <span className="wm-top">twofold</span>
+            <span className="wm-bottom">twofold</span>
+        </span>
+    );
+}
+
+/* ---------- Shell ---------- */
+
+export type NavKey = "dashboard" | "ledger" | "privacy";
+
+const NAV = [
+    {key: "dashboard", label: "Dashboard", route: "dashboard"},
+    {key: "ledger", label: "Daily", route: "ledger"}
+] as const satisfies readonly {key: NavKey, label: string, route: Route}[];
+
+function RunningPill({since}: {since: string}) {
+    const now = useNow();
+    return (
+        <button type="button" className="pill pill-running" onClick={() => go("running")}>
+            <span className="dot dot-ink" aria-hidden="true" />
+            Session running
+            <time className="figure" dateTime={since}>{clock(now - Date.parse(since))}</time>
+        </button>
+    );
+}
+
+/** Network and model facts in one quiet pill; it opens Settings, where each fact is explained. */
+function StatusPill() {
+    const [facts, reload] = useLoad(() => ledger.privacy.get(), [], ["verdict:updated"]);
+    const loading = facts.state === "ready" && facts.value.modelStatus === "loading";
+
+    // The model has no ready event; re-read only while it is still loading.
+    useEffect(() => {
+        if (!loading)
+            return;
+        const id = window.setInterval(reload, 4000);
+        return () => window.clearInterval(id);
+    }, [loading]);
+
+    const model = facts.state === "ready" ? `Labels ${modelStatusWord(facts.value.modelStatus).toLowerCase()}` : null;
+    return (
+        <button
+            type="button"
+            className="pill pill-status"
+            title="Twofold is blocked from the internet. Open Settings for more."
+            onClick={() => go("privacy")}
+        >
+            <span className="dot" aria-hidden="true" />
+            Private
+            {model != null && <><span className="pill-sep" aria-hidden="true" />{model}</>}
+        </button>
+    );
+}
+
+/** Brand, the two sections, and the machine facts at right. Settings is the round control. No search, account, or avatar (D-09). */
+export function TopBar({current}: {current?: NavKey}) {
+    const [session] = useLoad(() => ledger.session.current(), [], ["session:changed"]);
+    const running = session.state === "ready" ? session.value : null;
+
     return (
         <header className="topbar">
-            <button type="button" className="wordmark" onClick={() => go("idle")}>Ledger</button>
-            <nav className="topnav" aria-label="Ledger">
-                <button
-                    type="button"
-                    className="navlink"
-                    aria-current={current === "history" ? "page" : undefined}
-                    onClick={() => go("history")}
-                >History
+            <div className="topbar-inner">
+                <button type="button" className="brand" aria-label="Twofold. Go to the Dashboard" onClick={() => go("dashboard")}>
+                    <BrandMark size={34} />
+                    <Wordmark />
                 </button>
-                <button
-                    type="button"
-                    className="navlink"
-                    aria-current={current === "privacy" ? "page" : undefined}
-                    onClick={() => go("privacy")}
-                >Privacy
-                </button>
-            </nav>
+
+                <nav className="topnav" aria-label="Main">
+                    {NAV.map((item) => (
+                        <button
+                            key={item.key}
+                            type="button"
+                            className="navlink"
+                            aria-current={current === item.key ? "page" : undefined}
+                            onClick={() => go(item.route)}
+                        >{item.label}
+                        </button>
+                    ))}
+                </nav>
+
+                <div className="topbar-end">
+                    {session.state === "ready" && running == null && (
+                        <button type="button" className="btn btn-primary btn-small" onClick={() => go("declare")}>
+                            <PlusIcon />Start a session
+                        </button>
+                    )}
+                    {running != null && <RunningPill since={running.startedAt} />}
+                    <StatusPill />
+                    <button
+                        type="button"
+                        className="icon-btn icon-btn-round"
+                        aria-label="Settings"
+                        title="Settings"
+                        aria-current={current === "privacy" ? "page" : undefined}
+                        onClick={() => go("privacy")}
+                    >
+                        <SettingsIcon />
+                    </button>
+                </div>
+            </div>
         </header>
     );
 }
 
-export function Page({current, children}: {current?: "history" | "privacy", children: ReactNode}) {
+export function Page({current, wide = false, children}: {current?: NavKey, wide?: boolean, children: ReactNode}) {
     return (
         <>
             <TopBar current={current} />
-            <main className="page">{children}</main>
+            <main className={wide ? "page page-wide" : "page"}>{children}</main>
         </>
+    );
+}
+
+/** Previous and next, a date picker, the range switch, and Today. Every dependent card reads the same period. */
+export function PeriodNav({period, modes, onChange}: {
+    period: Period,
+    modes: readonly PeriodMode[] | null,
+    onChange(next: Period): void
+}) {
+    const picker = useRef<HTMLInputElement>(null);
+    const today = startOfDay(new Date());
+
+    const openPicker = () => {
+        try {
+            picker.current?.showPicker();
+        } catch {
+            picker.current?.focus();
+        }
+    };
+
+    return (
+        <div className="period-nav" role="group" aria-label="Period">
+            <div className="period-step">
+                <button type="button" className="icon-btn" aria-label={`Previous ${period.mode}`} onClick={() => onChange(shiftPeriod(period, -1))}>
+                    <ChevronLeftIcon />
+                </button>
+                <span className="date-control">
+                    <button type="button" className="date-button" onClick={openPicker}>
+                        <CalendarIcon />
+                        <span>{periodShort(period)}</span>
+                        <span className="sr-only">. Choose a date</span>
+                    </button>
+                    <input
+                        ref={picker}
+                        type="date"
+                        className="date-input"
+                        tabIndex={-1}
+                        aria-hidden="true"
+                        value={dayKey(period.anchor)}
+                        onChange={(e) => {
+                            const day = parseDayKey(e.target.value);
+                            if (day != null)
+                                onChange({mode: period.mode, anchor: day});
+                        }}
+                    />
+                </span>
+                <button type="button" className="icon-btn" aria-label={`Next ${period.mode}`} onClick={() => onChange(shiftPeriod(period, 1))}>
+                    <ChevronRightIcon />
+                </button>
+            </div>
+            {modes != null && (
+                <div className="segmented" role="group" aria-label="Range">
+                    {modes.map((mode) => (
+                        <button
+                            key={mode}
+                            type="button"
+                            aria-pressed={period.mode === mode}
+                            onClick={() => onChange({mode, anchor: period.anchor})}
+                        >{capital(mode)}
+                        </button>
+                    ))}
+                </div>
+            )}
+            <button
+                type="button"
+                className="btn btn-quiet btn-small"
+                disabled={containsDay(period, today)}
+                onClick={() => onChange({mode: period.mode, anchor: today})}
+            >Today
+            </button>
+        </div>
     );
 }
 
@@ -133,6 +342,7 @@ export function OutcomePair({sessionId, outcome}: {sessionId: string, outcome: O
     const [answer, setAnswer] = useState<Outcome | null>(outcome);
     const [error, setError] = useState<string | null>(null);
     const headingId = useId();
+    const answered = answer === "yes" || answer === "not_yet";
 
     const store = async (next: Outcome) => {
         setError(null);
@@ -145,7 +355,7 @@ export function OutcomePair({sessionId, outcome}: {sessionId: string, outcome: O
     };
 
     const close = async () => {
-        if (answer == null || answer === "unanswered") {
+        if (!answered) {
             try {
                 await ledger.review.answer(sessionId, "unanswered");
             } catch (err) {
@@ -153,12 +363,12 @@ export function OutcomePair({sessionId, outcome}: {sessionId: string, outcome: O
                 return;
             }
         }
-        go("history");
+        go("dashboard");
     };
 
     return (
         <section className="outcome" aria-labelledby={headingId}>
-            <h2 id={headingId} className="outcome-question">Did the block finish what you wrote?</h2>
+            <h2 id={headingId} className="outcome-question">Did you finish what you wrote?</h2>
             <div className="outcome-pair" role="group" aria-labelledby={headingId}>
                 <button
                     type="button"
@@ -176,13 +386,13 @@ export function OutcomePair({sessionId, outcome}: {sessionId: string, outcome: O
                 </button>
             </div>
             <p className="outcome-foot" aria-live="polite">
-                {answer === "yes" || answer === "not_yet" ? "Stored. Either answer is kept as it is." : "Either answer is kept as it is."}
+                {answered ? "Saved. You can change it at any time." : "Either answer is kept as it is."}
                 {" "}
                 <button type="button" className="link" onClick={() => void close()}>
-                    {answer === "yes" || answer === "not_yet" ? "Done" : "Close without answering"}
+                    {answered ? "Back to the Dashboard" : "Skip for now"}
                 </button>
             </p>
-            {error != null && <ErrorNote title="The answer was not stored." error={error} />}
+            {error != null && <ErrorNote title="The answer was not saved." error={error} />}
         </section>
     );
 }
@@ -190,7 +400,8 @@ export function OutcomePair({sessionId, outcome}: {sessionId: string, outcome: O
 type ConfirmPhase = "idle" | "confirming" | "working" | "done" | "error";
 
 /** A destructive action behind a second, inline step. No modal: the task needs neither interruption nor trapped focus. */
-export function ConfirmStep({action, consequence, confirmLabel, doneText, failText, onConfirm}: {
+export function ConfirmStep({title, action, consequence, confirmLabel, doneText, failText, onConfirm}: {
+    title?: string,
     action: string,
     consequence: string,
     confirmLabel: string,
@@ -215,7 +426,10 @@ export function ConfirmStep({action, consequence, confirmLabel, doneText, failTe
     return (
         <div className="confirm" data-phase={phase}>
             <div className="confirm-row">
-                <p className="confirm-consequence">{consequence}</p>
+                <div className="confirm-text">
+                    {title != null && <p className="setting-name">{title}</p>}
+                    <p className="confirm-consequence">{consequence}</p>
+                </div>
                 {(phase === "idle" || phase === "done" || phase === "error") && (
                     <button type="button" className="btn btn-quiet btn-danger" onClick={() => setPhase("confirming")}>{action}</button>
                 )}

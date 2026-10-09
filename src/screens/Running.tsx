@@ -26,7 +26,7 @@ export function Running({session}: {session: Session}) {
     return (
         <main className="running">
             <p className={session.intention === "" ? "running-intention is-empty" : "running-intention"}>
-                {session.intention === "" ? "No intention written for this block." : session.intention}
+                {session.intention === "" ? "No intention written for this session." : session.intention}
             </p>
 
             <p className="running-clock" aria-live="off">
@@ -35,13 +35,13 @@ export function Running({session}: {session: Session}) {
                     : <span className="running-gap">Not recording right now. The review will show this stretch as not recorded.</span>}
             </p>
 
-            {error != null && <ErrorNote title="The block did not end." error={error} />}
+            {error != null && <ErrorNote title="The session did not end." error={error} />}
 
             <div className="running-actions">
                 <button type="button" className="btn btn-primary" onClick={() => void end()} disabled={ending}>
-                    {ending ? "Ending…" : "End the block"}
+                    {ending ? "Ending…" : "End session"}
                 </button>
-                <button type="button" className="link" onClick={() => void ledger.widgets.toggleMini()}>Mini window</button>
+                <button type="button" className="link" onClick={() => void ledger.widgets.toggleMini()}>Show mini window</button>
             </div>
         </main>
     );

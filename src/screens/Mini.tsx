@@ -15,7 +15,7 @@ export function Mini({session}: {session: Load<Session | null>}) {
     if (running == null) {
         return (
             <main className="mini">
-                <p className="mini-intention is-empty">No block running.</p>
+                <p className="mini-intention is-empty">No session running.</p>
                 <button type="button" className="btn btn-small btn-quiet" onClick={() => void ledger.widgets.toggleMini()}>Hide</button>
             </main>
         );

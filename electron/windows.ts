@@ -5,7 +5,10 @@ import type {Route} from "../src/shared/types.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export const ROUTE_PATTERN = /^(idle|declare|permissions|running|review\/[\w-]+|history|privacy|mini)$/;
+export const ROUTE_PATTERN = new RegExp(
+    "^(idle|declare|permissions|running|review/[\\w-]+|history|privacy|mini" +
+    "|dashboard(/(day|week|month)/\\d{4}-\\d{2}-\\d{2})?|ledger(/\\d{4}-\\d{2}-\\d{2})?)$"
+);
 
 let mainWindow: BrowserWindow | null = null;
 let popover: BrowserWindow | null = null;

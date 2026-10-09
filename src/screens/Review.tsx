@@ -1,7 +1,9 @@
 import {useState} from "react";
-import {ErrorNote, OutcomePair, Page} from "../components.tsx";
-import {capital, counted, dayLabel, duration, host, sourceWord, timeOfDay, timeRange} from "../format.ts";
-import {errorText, ledger, useLoad} from "../ledger.ts";
+import {ChevronLeftIcon, ErrorNote, OutcomePair, Page} from "../components.tsx";
+import {capital, counted, dayLabel, duration, host, latency, sourceWord, timeOfDay, timeRange} from "../format.ts";
+import {errorText, go, ledger, useLoad} from "../ledger.ts";
+import {dayKey, dayTitle} from "../period.ts";
+import {median} from "../summary.ts";
 import {Legend, Trace} from "../trace.tsx";
 import {variantOf, variantWord} from "../trace-model.ts";
 import type {ReviewVisit} from "../shared/types.ts";
@@ -29,14 +31,14 @@ function LabelCell({visit}: {visit: ReviewVisit}) {
     if (variant === "away")
         return <span className="label-word quiet">Not judged</span>;
     if (variant === "judging")
-        return <span className="label-word quiet">Judging…</span>;
+        return <span className="label-word quiet">Labelling…</span>;
     if (variant === "unclear") {
         return (
             <div className="label-unclear">
                 <span className="label-word">Unclear. You decide.</span>
                 <span className="tap-pair" role="group" aria-label={`Label ${visit.appName}`}>
-                    <button type="button" className="btn btn-tap" disabled={busy} onClick={() => void tap("serves")}>Serves</button>
-                    <button type="button" className="btn btn-tap" disabled={busy} onClick={() => void tap("drifts")}>Drifts</button>
+                    <button type="button" className="btn btn-tap" disabled={busy} onClick={() => void tap("serves")}>{busy ? "Saving…" : "Served"}</button>
+                    <button type="button" className="btn btn-tap" disabled={busy} onClick={() => void tap("drifts")}>{busy ? "Saving…" : "Drifted"}</button>
                 </span>
                 {error != null && <span className="label-error" role="alert">Not saved: {error}</span>}
             </div>
@@ -46,7 +48,7 @@ function LabelCell({visit}: {visit: ReviewVisit}) {
     const source = visit.verdict?.source;
     return (
         <span className="label-asserted">
-            <span className="label-word">{source === "user" ? `You marked it ${variant}` : variantWord[variant]}</span>
+            <span className="label-word">{source === "user" ? `You marked it ${variantWord[variant].toLowerCase()}` : variantWord[variant]}</span>
             {source != null && source !== "user" && <span className="label-source">{sourceWord(source)}</span>}
         </span>
     );
@@ -82,6 +84,35 @@ function VisitRow({visit, active, onActive}: {visit: ReviewVisit, active: boolea
     );
 }
 
+/**
+ * Where this session's labels came from, counted from the stored verdicts, with the model's measured median time.
+ * Shows nothing until at least one label exists; no figure here is estimated.
+ */
+function LabelSources({visits}: {visits: ReviewVisit[]}) {
+    const verdicts = visits.flatMap((v) => (v.kind === "attention" && v.verdict != null ? [v.verdict] : []));
+    if (verdicts.length === 0)
+        return null;
+
+    const sources = (["rule", "memory", "model", "user"] as const)
+        .map((source) => ({source, n: verdicts.filter((v) => v.source === source).length}))
+        .filter(({n}) => n > 0);
+    const modelMs = median(verdicts.flatMap((v) => (v.source === "model" && v.latencyMs != null ? [v.latencyMs] : [])));
+
+    return (
+        <section className="sources" aria-labelledby="sources-heading">
+            <h2 id="sources-heading" className="sources-title">Labelled on this device</h2>
+            <ul className="sources-list">
+                {sources.map(({source, n}) => (
+                    <li key={source}><span className="figure">{n}</span> {sourceWord(source)}</li>
+                ))}
+            </ul>
+            {modelMs != null && (
+                <p className="sources-note">The on-device model took a median of <span className="figure">{latency(modelMs)}</span> per window.</p>
+            )}
+        </section>
+    );
+}
+
 /** The record first, the finish question last (US-004, US-005, US-010, BR-007). */
 export function Review({sessionId}: {sessionId: string}) {
     const [load] = useLoad(() => ledger.review.get(sessionId), [sessionId], ["verdict:updated"]);
@@ -106,11 +137,14 @@ export function Review({sessionId}: {sessionId: string}) {
     const variants = [...new Set(ordered.map(variantOf)), ...(unrecordedMs >= 1000 ? ["unrecorded" as const] : [])];
 
     return (
-        <Page>
+        <Page current="ledger">
+            <button type="button" className="link back-link" onClick={() => go(`ledger/${dayKey(new Date(session.startedAt))}`)}>
+                <ChevronLeftIcon />Back to {dayTitle(new Date(session.startedAt))}
+            </button>
             <article className="review">
                 <header className="review-head">
                     <h1 className={session.intention === "" ? "display is-empty" : "display"}>
-                        {session.intention === "" ? "No intention was written for this block." : session.intention}
+                        {session.intention === "" ? "No intention was written for this session." : session.intention}
                     </h1>
                     <p className="meta">
                         {dayLabel(session.startedAt)} · {timeRange(session.startedAt, session.endedAt)} ·{" "}
@@ -120,12 +154,12 @@ export function Review({sessionId}: {sessionId: string}) {
                 </header>
 
                 <Trace review={review} active={active} onActive={setActive} />
-                <Legend variants={variants} />
+                <Legend variants={variants} intention={session.intention !== ""} />
 
                 {unrecordedMs >= 1000 && (
                     <p className="gap-note">
                         <span className="seg seg-unrecorded swatch" aria-hidden="true" />
-                        <span><strong>{capital(duration(unrecordedMs))} not recorded.</strong> Ledger did not see this time, so it is not
+                        <span><strong>{capital(duration(unrecordedMs))} not recorded.</strong> Twofold did not see this time, so it is not
                             given to any window.
                         </span>
                     </p>
@@ -133,11 +167,11 @@ export function Review({sessionId}: {sessionId: string}) {
 
                 <section className="visits" aria-labelledby="visits-heading">
                     <div className="visits-head">
-                        <h2 id="visits-heading" className="section-title">In the order it happened</h2>
+                        <h2 id="visits-heading" className="section-title">Windows you used</h2>
                         {unclear > 0 && <p className="quiet">{capital(counted(unclear, "row"))} waiting for your word.</p>}
                     </div>
                     {ordered.length === 0
-                        ? <p className="empty">No windows were recorded in this block.</p>
+                        ? <p className="empty">No windows were recorded in this session.</p>
                         : (
                             <ol className="visit-list">
                                 {ordered.map((visit) => (
@@ -147,6 +181,7 @@ export function Review({sessionId}: {sessionId: string}) {
                         )}
                 </section>
 
+                {session.endedAt != null && <LabelSources visits={ordered} />}
                 {session.endedAt != null && <OutcomePair sessionId={session.id} outcome={session.outcome} />}
             </article>
         </Page>
