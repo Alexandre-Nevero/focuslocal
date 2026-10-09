@@ -102,8 +102,8 @@ No hex values. The shell uses the operating system's text and window colors unti
 
 ## 8. Provenance & Overrides
 
-**Provenance:** none. No stylesheet or UI source exists in this repository.
-Last synced: 2026-10-09, against an empty tree.
+**Provenance:** `src/styles.css` (tokens in `:root`, system colors and `color-mix` of the system pair only), `src/trace.tsx` (the review strip), `src/components.tsx`, `src/screens/`.
+Last synced: 2026-10-10, against the first renderer build.
 
 **Tool/library defaults this project deliberately overrides:**
 

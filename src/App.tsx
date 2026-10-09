@@ -1,6 +1,15 @@
 import {useEffect, useState} from "react";
+import {ErrorNote} from "./components.tsx";
+import {ledger, useLoad} from "./ledger.ts";
+import {Declare} from "./screens/Declare.tsx";
+import {History} from "./screens/History.tsx";
+import {Idle} from "./screens/Idle.tsx";
+import {Mini} from "./screens/Mini.tsx";
+import {Permissions} from "./screens/Permissions.tsx";
+import {Privacy} from "./screens/Privacy.tsx";
+import {Review} from "./screens/Review.tsx";
+import {Running} from "./screens/Running.tsx";
 
-// Route switch only. Each route below is a placeholder heading; the frontend issue replaces them with the real screens.
 // Routes and their screens: docs/design.md §2. Data: window.ledger (src/shared/types.ts LedgerApi) and nothing else.
 
 function useHashRoute() {
@@ -16,16 +25,39 @@ function useHashRoute() {
 export function App() {
     const route = useHashRoute();
     const [name = "idle", param] = route.split("/");
+    const [session] = useLoad(() => ledger.session.current(), [], ["session:changed"]);
+
+    useEffect(() => {
+        document.documentElement.dataset["surface"] = name || "idle";
+    }, [name]);
+
+    if (name === "mini")
+        return <Mini session={session} />;
+
+    // A running block owns the popover: idle, declare, and running all show it until it ends.
+    const running = session.state === "ready" ? session.value : null;
+    const waiting = session.state === "loading";
 
     switch (name) {
-        case "idle": return <h1>Idle</h1>;
-        case "declare": return <h1>Declare</h1>;
-        case "permissions": return <h1>Permissions</h1>;
-        case "running": return <h1>Running</h1>;
-        case "review": return <h1>Review {param}</h1>;
-        case "history": return <h1>History</h1>;
-        case "privacy": return <h1>Privacy</h1>;
-        case "mini": return <h1>Mini</h1>;
-        default: return <h1>Unknown route: {route}</h1>;
+        case "":
+        case "idle":
+            if (waiting)
+                return null;
+            return running != null ? <Running session={running} /> : <Idle />;
+        case "declare":
+            if (waiting)
+                return null;
+            return running != null ? <Running session={running} /> : <Declare />;
+        case "running":
+            if (waiting)
+                return null;
+            if (session.state === "error")
+                return <main className="page"><ErrorNote title="The running block could not be read." error={session.error} /></main>;
+            return running != null ? <Running session={running} /> : <Idle />;
+        case "permissions": return <Permissions />;
+        case "review": return param == null ? <History /> : <Review sessionId={param} />;
+        case "history": return <History />;
+        case "privacy": return <Privacy />;
+        default: return <main className="page"><ErrorNote title={`There is no screen called “${route}”.`} /></main>;
     }
 }

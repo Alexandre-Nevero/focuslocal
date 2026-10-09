@@ -13,7 +13,7 @@
     "build:app": "tsc && vite build",
     "build": "npm run build:app && electron-builder --config ./electron-builder.ts",
     "eval": "npm run build:app && node scripts/eval.mjs",
-    "test": "node --test electron/**/*.test.ts",
+    "test": "node --test electron/**/*.test.ts src/**/*.test.ts",
     "typecheck": "tsc",
     "lint": "eslint --report-unused-disable-directives .",
     "format": "npm run lint -- --fix"
