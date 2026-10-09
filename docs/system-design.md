@@ -6,7 +6,7 @@ doc: system-design
 owns: component boundaries and responsibilities · system context · data flow · technology choices and their trade-offs · integration failure behaviour · deployment topology · scaling strategy
 ---
 
-# System Design — Ledger
+# System Design — Twofold
 
 > **Purpose:** the HOW, at component level. Feature behavior stays in [`prd.md`](prd.md). Field types stay in [`data-model.md`](data-model.md).
 
@@ -273,7 +273,7 @@ Queued/in-flight work belongs to the current database generation. Delete and qui
 
 ### Widgets
 
-- **Tray.** On Windows and macOS, a tray click toggles a 320×420 frameless popover positioned from `tray.getBounds()`. On Linux, `tray.setContextMenu` offers Open Ledger, End session, Show mini window, and Quit.
+- **Tray.** On Windows and macOS, a tray click toggles a 320×420 frameless popover positioned from `tray.getBounds()`. On Linux, `tray.setContextMenu` offers Open Twofold, End session, Show mini window, and Quit. The visible name is Twofold. The code that places the icon can still say ledger.
 - **Mini window.** A 280×72 frameless, `alwaysOnTop`, `skipTaskbar` window showing the intention, the clock, and an End button.
 - **macOS desktop widget.** A transparent `type:'desktop'` 280×72 window, bottom-right, display-only, shown while a session runs.
 - **Linux.** Main writes `widget.txt`: line 1 is the pango-escaped intention, line 2 is the start epoch in seconds. It is deleted at session end and on delete-file. `scripts/genmon-ledger.sh` prints `<txt>$intention · ${mins}m</txt>`, or `<txt>Ledger idle</txt>` when the file is absent.
@@ -283,9 +283,11 @@ Queued/in-flight work belongs to the current database generation. Delete and qui
 
 Same loaded model, separate `LlamaChatSession`, `QwenChatWrapper({variation: '3.5', thoughts: 'discourage'})`, `maxTokens: 220`, 20 s timeout. `thoughts: 'discourage'` is the spike O1 fix for a `<think>` segment eating the reply.
 
-The data block is computed in code for one ended session: intention, outcome, milliseconds per shown label, away, unrecorded, and the app names. The system prompt says to use only that block, never praise "yes" or scold "not yet", and never state a score, rate, streak, or hours headline. The user's text is inside a fence. Newlines in it are stripped.
+The data block is computed in code, then fenced. For the session just ended: intention, outcome, each visit's app, shown label, and source, block hits, away, and unrecorded time. For the local file: session count, yes count, not-yet count, time per shown label, and any app or site reached for on more than one session. History is empty on the first session. The prompt also receives `electron/ai/coach-corpus.json`. C9, C11, C12, and C13 are constraints, not advice. C21 may be used. C22's numbers may not. The user's text is inside a fence. Newlines in it are stripped. The prompt says never praise "yes" or scold "not yet", and never state a score, rate, streak, or hours headline.
 
-Before the reply is shown, every number in it has to appear in the data block. If one does not, store and show "The coach could not answer from the record." Both turns go to `coach_turn`. Drop memory does not delete them. Delete file does, because it deletes the file.
+A suggestion is one of the ADR-012 buttons. "Block this" adds the target to `saved_target` with role `distraction`, and only when it is not already blocked and not on the work list. The suggestion does not repeat a window title.
+
+Before the reply is shown, every number in it has to appear in the computed figures or in a corpus claim labeled `verified`. If one does not, store and show "The coach could not answer from the record." Both turns go to `coach_turn`. Drop memory does not delete them. Delete file does, because it deletes the file. See [ADR-014](adr/ADR-014-coach-reads-the-local-record.md).
 
 ### Companion
 
@@ -347,6 +349,6 @@ While a session runs, the popup shows the intention, the clock, End, and "This i
 - [`prd.md`](prd.md)
 - [`data-model.md`](data-model.md)
 - [`idea.md`](../idea.md)
-- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-005](adr/ADR-005-system-one-plus-slm.md), [ADR-011](adr/ADR-011-coach-companion-and-system-one.md), [ADR-012](adr/ADR-012-meant-loop-on-device.md)
+- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-005](adr/ADR-005-system-one-plus-slm.md), [ADR-011](adr/ADR-011-coach-companion-and-system-one.md), [ADR-012](adr/ADR-012-meant-loop-on-device.md), [ADR-013](adr/ADR-013-display-name-twofold.md), [ADR-014](adr/ADR-014-coach-reads-the-local-record.md)
 - Research: branch `research/ledger-stack`.
 - `quality.md`, `security.md`, and `api.md` are not in this doc set. See [`context.md`](../context.md).

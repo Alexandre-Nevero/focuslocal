@@ -6,7 +6,7 @@ doc: data-model
 owns: entities and their relationships · per-field types, nullability and defaults · keys, constraints and indexes · schema migration and rollback
 ---
 
-# Data Model / Schema — Ledger
+# Data Model / Schema — Twofold
 
 > **Purpose:** the local file. Classification policy is not defined here. No `security.md` is in this set. The Class column uses two provisional tags, `internal` and `on-device private`, and does not pretend those tags are a retention policy.
 

@@ -6,14 +6,14 @@ doc: product
 owns: features (F-###) and their MoSCoW priority · personas · user stories (US-###) and their acceptance criteria · cross-cutting business rules (BR-###) · app flow, screen inventory & UX intent · instrumentation taxonomy
 ---
 
-# Product — Ledger
+# Product — Twofold
 
 > **Purpose:** the WHAT, for the team. Translates the brief into stories a build can be checked against.
 > Traces back to: `idea.md` §6, §7, §8, §10. Traces forward to: design, system design, data model.
 
 ## 1. Product Purpose & Value Proposition
 
-Ledger is for a self-employed person who works and gets distracted on the same computer. They say what they meant to finish. The app records the windows they actually used. The review puts those two side by side so the gap can be noticed. The question of whether they finished is asked and stored, and it is not the goal. Awareness is. Accountability loses where they conflict ([ADR-008](adr/ADR-008-awareness-over-accountability.md)). An on-device model judges only the windows they did not already classify. The title stays on the machine.
+Twofold is for a self-employed person who works and gets distracted on the same computer. The public name is Twofold ([ADR-013](adr/ADR-013-display-name-twofold.md)). Code, storage, and IPC still say ledger. They say what they meant to finish. The app records the windows they actually used. The review puts those two side by side so the gap can be noticed. The question of whether they finished is asked and stored, and it is not the goal. Awareness is. Accountability loses where they conflict ([ADR-008](adr/ADR-008-awareness-over-accountability.md)). An on-device model judges only the windows they did not already classify. The title stays on the machine.
 
 The one-sentence form is [`idea.md` §6](../idea.md). This paragraph is the only longer form.
 
@@ -46,7 +46,7 @@ IDs and MoSCoW tiers match [`idea.md` §7](../idea.md). Nothing here adds an ID.
 | F-008 | Eval set, precision only from a run. | Must | A claimed accuracy with no run fails the event. | |
 | F-009 | Block today's sites and apps. Record the reach, not a duration. | Should | The popup asks what to block. | Work list and a host named in the intention are never blocked. See [ADR-012](adr/ADR-012-meant-loop-on-device.md). |
 | F-010 | In-session drift signal. | Won't | A wrong flag would interrupt the block. | See [ADR-001](adr/ADR-001-silent-review.md). |
-| F-011 | Coach, after the session, on the on-device model, from computed figures only. A suggestion needs a button. | Should | The record is the gap. The coach is how a person asks about it. | Same model as the judge. No praise, no scold, no invented number. See [ADR-011](adr/ADR-011-coach-companion-and-system-one.md). |
+| F-011 | Coach, after the session, from this block and the local record. A suggestion needs a button. | Should | The record is the gap. The coach can add a reach to the block list. | See [ADR-014](adr/ADR-014-coach-reads-the-local-record.md). |
 | F-012 | Account and sync. | Won't | An account is a network surface. | See [`idea.md` §7](../idea.md). |
 | F-013 | Score, rate, streak, or hours headline. | Won't | That number is what a manager would want. | See [`idea.md` §7](../idea.md). |
 | F-014 | Desktop companion. The coach's character. Drag, hover, tap opens the popup. | Should | The coach needs a body that is not a menu item. | No verdict on it while a session runs. See [ADR-011](adr/ADR-011-coach-companion-and-system-one.md). |
@@ -152,6 +152,9 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 - Given the reply contains a number that was not in those figures, when it would be shown, then it is not shown, and the screen says the coach could not answer from the record.
 - Given I answered yes or not yet, when the coach replies, then it does not praise yes and does not scold not yet.
 - Given the coach proposes an action, when that action is not start a block, add to the block list, add to the work list, open a review, or open Sites, then the suggestion is not shown. The reply about the record can still show.
+- Given a session has ended, when the coach is asked, then its figures include that session's visits, labels, sources, and block hits, plus counts from the local file. A first session has empty history and the reply still comes from the block just ended.
+- Given a reach is not on the block list and not on the work list, when the coach suggests it, then the suggestion is a Block button that adds it to the saved block list.
+- Given the reply states a number, when that number is not in the computed figures and not in a corpus claim labeled verified, then the reply is not shown.
 
 **US-012 — Keep the coach's character on the desktop** *(F-014, F-011)* — Priority: Should
 > As a **Worker**, I want the coach's character on the desktop, so that I can move it, and tap it when I want it.
@@ -239,6 +242,8 @@ The panel does not measure packets. A judge who wants byte counts uses a monitor
 | Extension popup | Chromium extension popup showing status (US-001, BR-001) | Click extension icon in browser | running / no session |
 
 ### 5.2 App Flow
+
+**Demo path.** One block, in this order, and only the steps the build can show. Type "finish the client pitch deck". The writing preset fills the block list. A window on the work list is serves, from the list. A blocked app is a reach with no duration. One window on neither list is unclear until a tap. The review shows each label's source. The coach names the reach and shows Block. The privacy panel shows the model id and that this build has no network client. A step that is not in the build is skipped, not described as if it ran. See [ADR-014](adr/ADR-014-coach-reads-the-local-record.md).
 
 **Linear (primary path):**
 
@@ -349,4 +354,4 @@ Scope exclusions for whole populations and products are in [`idea.md` §10](../i
 - [`design.md`](design.md)
 - [`system-design.md`](system-design.md)
 - [`data-model.md`](data-model.md)
-- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-006](adr/ADR-006-template-vite-build.md), [ADR-007](adr/ADR-007-windows-first.md), [ADR-008](adr/ADR-008-awareness-over-accountability.md), [ADR-011](adr/ADR-011-coach-companion-and-system-one.md), [ADR-012](adr/ADR-012-meant-loop-on-device.md)
+- [ADR-001](adr/ADR-001-silent-review.md), [ADR-002](adr/ADR-002-harness-order.md), [ADR-003](adr/ADR-003-electron-and-node-llama-cpp.md), [ADR-004](adr/ADR-004-three-os-and-three-frontends.md), [ADR-006](adr/ADR-006-template-vite-build.md), [ADR-007](adr/ADR-007-windows-first.md), [ADR-008](adr/ADR-008-awareness-over-accountability.md), [ADR-011](adr/ADR-011-coach-companion-and-system-one.md), [ADR-012](adr/ADR-012-meant-loop-on-device.md), [ADR-013](adr/ADR-013-display-name-twofold.md), [ADR-014](adr/ADR-014-coach-reads-the-local-record.md)

@@ -5,7 +5,7 @@ origin: Rebuilt from the owner's MEANT internship project for AppBuildersPH Hack
 payer_status: assumed
 ---
 
-# Idea: Ledger
+# Idea: Twofold
 
 ## 1. Problem statement
 
@@ -82,7 +82,7 @@ For a **self-employed person whose work and distractions share one computer**, w
 | F-008 | An eval set of labeled windows, with precision reported only from a run of that set. | Must | The prior judge was shown to users conceptually before it cleared a bar. A claimed accuracy with no run is a disqualifier at this hackathon. | — |
 | F-009 | Block the sites and apps named for this session. A site is replaced. A desktop app is hidden, not quit. The review shows the reach, with no duration. | Should | The start screen asks what to block, and then has to do it. | Work sites, and a host named in the intention, are never blocked. See [ADR-012](docs/adr/ADR-012-meant-loop-on-device.md). |
 | F-010 | An in-session signal that the current window is drift. | Won't | Would have shortened the lag between drift and noticing. | Reason: the prior product removed the live signal (its ADR-0057, 2026-09-15) because a wrong flag during work had no correction. The probe shows a small model will be wrong. Reconsider if shown precision clears the bar in §9 and a correction exists. |
-| F-011 | A coach that talks about one ended session, using the on-device model, and only from figures the app computed. A suggestion appears only with a button the app can run. | Should | The record shows the gap. A conversation is how a person asks about it after the block. | It runs after the session, on the same Qwen the judge uses. It does not praise or scold the finish answer, and it does not invent a number. See [ADR-011](docs/adr/ADR-011-coach-companion-and-system-one.md) and [ADR-012](docs/adr/ADR-012-meant-loop-on-device.md). |
+| F-011 | A coach that talks after the session, on the on-device model, from this block and the local record. A suggestion appears only with a button the app can run. A local corpus tells it what not to do. | Should | The record shows the gap. The coach can add the thing you reached for to the block list. | It does not praise or scold the finish answer, and it does not invent a number. See [ADR-014](docs/adr/ADR-014-coach-reads-the-local-record.md). |
 | F-012 | An account, sync, and a second device. | Won't | Would have kept the history when they change machines. | Reason: one computer is enough to test the loop, and an account is a network surface the privacy claim then has to explain. Reconsider when a second device is a real request. |
 | F-013 | A productivity score, rate, streak, or hours headline. | Won't | Would have given a single number to glance at. | Reason: a score is what a manager would ask to see, and this product does not serve managers. Reconsider never, as currently framed. |
 | F-014 | A companion on the desktop: the coach's character, draggable, with a hover motion. A tap opens the popup. During a session that popup can mark the open window "this isn't the work". | Should | The coach needs a place to live that is not a button buried in the review. | The pet does not change with the finish answer, and it shows no verdict while a session runs. See [ADR-011](docs/adr/ADR-011-coach-companion-and-system-one.md). |
