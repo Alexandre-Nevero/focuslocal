@@ -1,8 +1,7 @@
 import {useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent} from "react";
 import {ErrorNote} from "../components.tsx";
 import {ledger} from "../ledger.ts";
-import {Coach} from "../screens/Coach.tsx";
-import {Running} from "../screens/Running.tsx";
+import {History} from "../screens/History.tsx";
 import type {AssistantVisualState, AssistantWindowState, Session} from "../shared/types.ts";
 import poseCoach from "../assets/mascot/pose-coach.svg";
 import poseDragging from "../assets/mascot/pose-dragging.svg";
@@ -40,7 +39,7 @@ function Mascot({state, className}: {state: AssistantVisualState, className: str
     );
 }
 
-export function Assistant({session, loading, error}: AssistantProps) {
+export function Assistant({loading, error}: AssistantProps) {
     const [visual, setVisual] = useState<AssistantVisualState>("idle");
     const [nativeState, setNativeState] = useState<AssistantWindowState>({expanded: false});
     const expandedRef = useRef(false);
@@ -207,10 +206,8 @@ export function Assistant({session, loading, error}: AssistantProps) {
             </header>
             <div className="assistant-content">
                 {loading && <p className="status">Opening Twofold…</p>}
-                {error != null && <ErrorNote title="The current session could not be read." error={String(error)} />}
-                {!loading && error == null && (session == null
-                    ? <Coach />
-                    : <Running session={session} variant="assistant" />)}
+                {error != null && <ErrorNote title="The session log could not be read." error={String(error)} />}
+                {!loading && error == null && <History />}
             </div>
         </main>
     );

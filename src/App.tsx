@@ -7,6 +7,7 @@ import {Running} from "./screens/Running.tsx";
 
 // Each window loads only the screens it routes to. The companion renderer never parses the dashboard or review code.
 const Dashboard = lazy(() => import("./screens/Dashboard.tsx").then((m) => ({default: m.Dashboard})));
+const Coach = lazy(() => import("./screens/Coach.tsx").then((m) => ({default: m.Coach})));
 const Declare = lazy(() => import("./screens/Declare.tsx").then((m) => ({default: m.Declare})));
 const History = lazy(() => import("./screens/History.tsx").then((m) => ({default: m.History})));
 const Ledger = lazy(() => import("./screens/Ledger.tsx").then((m) => ({default: m.Ledger})));
@@ -91,6 +92,7 @@ export function App() {
                 return frame(<ErrorNote title="The running session could not be read." error={session.error} />);
             return runningView ?? home;
         case "permissions": return <Permissions />;
+        case "coach": return <Coach />;
         case "dashboard": return <Dashboard mode={param} date={extra} />;
         case "ledger": return <Ledger date={param} />;
         case "review": return param == null ? <History /> : <Review sessionId={param} />;

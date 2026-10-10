@@ -15,7 +15,7 @@ export type PeriodMode = "day" | "week" | "month";
 
 /** Renderer routes (docs/design.md §4.1): one bundle, selected by URL hash `#/<route>`. Dates are local `YYYY-MM-DD`. */
 export type Route =
-    | "idle" | "declare" | "permissions" | "running" | "assistant" | `review/${string}` | "history" | "privacy" | "mini"
+    | "idle" | "declare" | "permissions" | "running" | "assistant" | "coach" | `review/${string}` | "history" | "privacy" | "mini"
     | "dashboard" | `dashboard/${PeriodMode}/${string}`
     | "ledger" | `ledger/${string}`;
 
