@@ -1,0 +1,29 @@
+{
+  "name": "Twofold companion",
+  "version": 1,
+  "sprite": "mascot-sprite.svg",
+  "viewBox": "0 0 256 256",
+  "default": "pose-idle",
+  "views": ["view-front", "view-three-quarter", "view-side", "view-back"],
+  "expressions": ["expression-neutral", "expression-happy", "expression-curious", "expression-calm", "expression-encouraging", "expression-thinking", "expression-sleepy", "expression-proud"],
+  "poses": ["pose-idle", "pose-wave", "pose-point", "pose-observe", "pose-coach", "pose-reflect", "pose-hover"],
+  "uiStates": ["ui-icon", "ui-notification", "ui-waiting", "ui-empty", "ui-ready", "ui-reminder", "ui-coach"],
+  "behavior": {
+    "running": "pose-idle",
+    "hover": "pose-hover",
+    "coachOpen": "pose-coach",
+    "outcomeAffectsAppearance": false,
+    "verdictAffectsAppearance": false
+  },
+  "palette": {
+    "cream": "#F7EFE2",
+    "tan": "#D8A464",
+    "ochre": "#E4A33B",
+    "darkBrown": "#3B2D22",
+    "sage": "#9CA98A",
+    "dustyBlue": "#8CA8C7",
+    "coral": "#E89B7D",
+    "lavender": "#C9C3E6",
+    "butter": "#F5D884"
+  }
+}

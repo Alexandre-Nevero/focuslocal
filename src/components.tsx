@@ -3,6 +3,7 @@ import {capital, clock, modelStatusWord} from "./format.ts";
 import {errorText, go, ledger, useLoad, useNow} from "./ledger.ts";
 import {containsDay, dayKey, parseDayKey, periodShort, shiftPeriod, startOfDay, type Period} from "./period.ts";
 import type {Outcome, PeriodMode, Role, Route} from "./shared/types.ts";
+import mascotFace from "./assets/mascot/mascot-face.svg";
 
 /* ---------- Icons: one 16px grid, 1.6 stroke, round joins ---------- */
 
@@ -60,10 +61,7 @@ const INNER_ARCS = [arc(15, 20, 170), arc(15, 185, 275), arc(15, 290, 365)];
 /** One whole intention around a broken observed trace. Static: never animated, never tied to data. */
 export function BrandMark({size = 32}: {size?: number}) {
     return (
-        <svg className="brand-mark" viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" focusable="false">
-            <circle cx="32" cy="32" r="26" fill="none" stroke="var(--tf-accent)" strokeWidth="6" />
-            {INNER_ARCS.map((d) => <path key={d} d={d} fill="none" stroke="var(--tf-ink)" strokeWidth="6" />)}
-        </svg>
+        <img className="brand-mark" src={mascotFace} width={size} height={size} alt="" aria-hidden="true" draggable={false} />
     );
 }
 

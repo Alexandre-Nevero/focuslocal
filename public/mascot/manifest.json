@@ -1,0 +1,31 @@
+{
+  "name": "Twofold companion",
+  "version": 1,
+  "sprite": "/mascot/mascot-sprite.svg",
+  "viewBox": "0 0 256 256",
+  "defaultSymbol": "pose-idle",
+  "brandSymbol": "mascot-face",
+  "runtimeSymbols": [
+    "pose-idle",
+    "pose-hover",
+    "pose-dragging",
+    "pose-coach"
+  ],
+  "behavior": {
+    "assetMotion": false,
+    "hostHoverOffsetPx": 4,
+    "outcomeAffectsAppearance": false,
+    "verdictAffectsAppearance": false
+  },
+  "palette": {
+    "cream": "#F7EFE2",
+    "tan": "#D8A464",
+    "ochre": "#E4A33B",
+    "darkBrown": "#3B2D22",
+    "sage": "#9CA98A",
+    "dustyBlue": "#8CA8C7",
+    "coral": "#E89B7D",
+    "lavender": "#C9C3E6",
+    "butter": "#F5D884"
+  }
+}

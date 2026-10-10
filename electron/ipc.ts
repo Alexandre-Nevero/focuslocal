@@ -313,7 +313,40 @@ export function recoverUnfinishedSession(): string | null {
     return id;
 }
 
+const assistantWindows = import("./windows.ts");
+const MAX_ASSISTANT_DELTA = 128;
+
+function validAssistantDelta(value: unknown): value is number {
+    return typeof value === "number" && Number.isFinite(value) && Math.abs(value) <= MAX_ASSISTANT_DELTA;
+}
+
 export function registerIpc() {
+    ipcMain.on("assistant.move", (event, dx: unknown, dy: unknown) => {
+        void assistantWindows.then((windows) => {
+            if (!windows.isAssistantSender(event.sender) || !validAssistantDelta(dx) || !validAssistantDelta(dy))
+                return;
+            windows.moveAssistantBy(dx, dy);
+        });
+    });
+    ipcMain.handle("assistant.toggle", async (event) => {
+        const windows = await assistantWindows;
+        if (!windows.isAssistantSender(event.sender))
+            throw new Error("Assistant controls are only available to the assistant window");
+        return windows.toggleAssistant();
+    });
+    ipcMain.handle("assistant.collapse", async (event) => {
+        const windows = await assistantWindows;
+        if (!windows.isAssistantSender(event.sender))
+            throw new Error("Assistant controls are only available to the assistant window");
+        return windows.collapseAssistant();
+    });
+    ipcMain.handle("assistant.state", async (event) => {
+        const windows = await assistantWindows;
+        if (!windows.isAssistantSender(event.sender))
+            throw new Error("Assistant controls are only available to the assistant window");
+        return windows.getAssistantState();
+    });
+
     for (const [channel, handler] of Object.entries(handlers))
         ipcMain.handle(channel, (_event, ...args: unknown[]) => {
             if (deleting != null && channel !== "privacy.deleteFile")
