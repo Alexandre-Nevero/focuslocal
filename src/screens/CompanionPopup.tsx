@@ -1,4 +1,7 @@
 import {useEffect, useRef, useState, type PointerEvent} from "react";
+import poseCoach from "../assets/mascot/pose-coach.svg";
+import poseHover from "../assets/mascot/pose-hover.svg";
+import poseIdle from "../assets/mascot/pose-idle.svg";
 
 const PET = 96;
 const POPUP_W = 320;
@@ -180,9 +183,15 @@ export function CompanionPopup({
                     transition: "transform 0.15s ease-out"
                 }}
             >
-                <svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true">
-                    <circle cx="28" cy="28" r="24" fill="color-mix(in srgb, CanvasText 18%, Canvas)" stroke="CanvasText" strokeWidth="2" />
-                </svg>
+                {/* The mascot looks the same for every outcome and verdict; only pointer and panel state change the pose. */}
+                <img
+                    src={expanded ? poseCoach : petHover ? poseHover : poseIdle}
+                    width={80}
+                    height={80}
+                    alt=""
+                    draggable={false}
+                    style={{display: "block", pointerEvents: "none", filter: "drop-shadow(0 4px 4px rgb(59 45 34 / 0.22))"}}
+                />
             </div>
             {expanded ? (
                 <section

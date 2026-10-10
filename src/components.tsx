@@ -2,6 +2,7 @@ import {useEffect, useId, useRef, useState, type ReactNode} from "react";
 import {capital, clock, modelStatusWord} from "./format.ts";
 import {errorText, go, ledger, useLoad, useNow} from "./ledger.ts";
 import {containsDay, dayKey, parseDayKey, periodShort, shiftPeriod, startOfDay, type Period} from "./period.ts";
+import mascotFace from "./assets/mascot/mascot-face.svg";
 import type {Outcome, PeriodMode, Role, Route} from "./shared/types.ts";
 
 /* ---------- Icons: one 16px grid, 1.6 stroke, round joins ---------- */
@@ -44,26 +45,13 @@ export const SettingsIcon = () => (
     </Icon>
 );
 
-/* ---------- Brand: contour mark and split wordmark (docs/design.md §3.2, §3.3) ---------- */
+/* ---------- Brand: mascot face mark and split wordmark (docs/design.md §3.2, §3.3) ---------- */
 
-/** Clockwise arc on the 64px master, degrees from twelve o'clock. */
-function arc(r: number, from: number, to: number) {
-    const point = (deg: number) => {
-        const a = (deg * Math.PI) / 180;
-        return `${(32 + r * Math.sin(a)).toFixed(2)} ${(32 - r * Math.cos(a)).toFixed(2)}`;
-    };
-    return `M ${point(from)} A ${r} ${r} 0 ${to - from > 180 ? 1 : 0} 1 ${point(to)}`;
-}
-
-const INNER_ARCS = [arc(15, 20, 170), arc(15, 185, 275), arc(15, 290, 365)];
 
 /** One whole intention around a broken observed trace. Static: never animated, never tied to data. */
 export function BrandMark({size = 32}: {size?: number}) {
     return (
-        <svg className="brand-mark" viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" focusable="false">
-            <circle cx="32" cy="32" r="26" fill="none" stroke="var(--tf-accent)" strokeWidth="6" />
-            {INNER_ARCS.map((d) => <path key={d} d={d} fill="none" stroke="var(--tf-ink)" strokeWidth="6" />)}
-        </svg>
+        <img className="brand-mark" src={mascotFace} width={size} height={size} alt="" aria-hidden="true" draggable={false} />
     );
 }
 

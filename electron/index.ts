@@ -23,6 +23,13 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL != null
 // Chromium's profile (caches, local storage) would otherwise share %APPDATA%\Ledger with ledger.db. Keep it in a subfolder.
 app.setPath("userData", path.join(ledgerDir(), "chromium"));
 
+// On Linux, GPU compositing paints the transparent companion window as a black, clipped square.
+// The UI is flat paper, so software compositing is enough.
+if (process.platform === "linux") {
+    app.disableHardwareAcceleration();
+    app.commandLine.appendSwitch("enable-transparent-visuals");
+}
+
 /**
  * No network client (BR-005, system-design §9): every request that is not a local file is cancelled.
  * The Vite dev server is allowed only in an unpackaged dev run.
