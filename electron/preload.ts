@@ -5,7 +5,8 @@ import type {LedgerApi, LedgerEvents} from "../src/shared/types.ts";
 const call = (channel: string) => (...args: unknown[]) => ipcRenderer.invoke(channel, ...args);
 
 const ledger: LedgerApi = {
-    session: {start: call("session.start"), end: call("session.end"), current: call("session.current")},
+    coach: {history: call("coach.history"), ask: call("coach.ask")},
+    session: {start: call("session.start"), end: call("session.end"), current: call("session.current"), updateIntention: call("session.updateIntention")},
     review: {get: call("review.get"), tap: call("review.tap"), answer: call("review.answer")},
     history: {list: call("history.list")},
     privacy: {get: call("privacy.get"), dropMemory: call("privacy.dropMemory"), deleteFile: call("privacy.deleteFile")},

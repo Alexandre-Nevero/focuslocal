@@ -2,11 +2,98 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>Ledger</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light">
+        <title>Twofold</title>
+        <link rel="stylesheet" href="popup.css">
     </head>
     <body>
-        <div id="intention">No session</div>
-        <div id="clock"></div>
+        <main class="popup" aria-live="polite">
+            <header class="topbar">
+                <span class="mark" aria-hidden="true"><i></i></span>
+                <span class="wordmark">twofold</span>
+                <span class="local-tag"><span class="local-dot"></span>On this device</span>
+            </header>
+
+            <section id="state" class="state" aria-busy="true">
+                <p class="eyebrow">SESSION</p>
+                <p class="state-copy">Checking the local session…</p>
+            </section>
+
+            <section id="session" class="session" hidden>
+                <p id="eyebrow" class="eyebrow">IN PROGRESS</p>
+                <h1 id="heading">You meant to</h1>
+                <label class="visually-hidden" for="intention">You meant to</label>
+                <textarea id="intention" class="intention" aria-label="You meant to" rows="2" maxlength="4000" readonly></textarea>
+                <button id="intention-edit" class="intention-edit" type="button" hidden>Edit intention</button>
+                <div id="intention-actions" class="intention-actions" hidden>
+                    <button id="intention-save" class="primary-action" type="button">Save intention</button>
+                    <button id="intention-cancel" class="secondary-action" type="button">Cancel</button>
+                </div>
+                <p id="intention-note" class="form-note" aria-live="polite"></p>
+                <div id="running-clock" class="running-clock" hidden>
+                    <span class="clock-dot"></span><span id="clock"></span>
+                </div>
+                <button id="end-session" class="end-session" type="button" hidden>End block <span aria-hidden="true">↗</span></button>
+
+                <section id="record" class="record" hidden aria-label="Session record">
+                    <div class="record-heading">
+                        <span>What the windows show</span>
+                        <span id="duration" class="duration"></span>
+                    </div>
+                    <div id="timeline" class="timeline" role="img" aria-label="Recorded session time"></div>
+                    <div id="legend" class="legend"></div>
+                    <div id="hosts" class="hosts" hidden></div>
+                    <section class="visit-details" aria-labelledby="visits-heading">
+                        <h2 id="visits-heading">Windows you used</h2>
+                        <p class="visit-hint">Select a label to change it. Each label shows where it came from.</p>
+                        <ol id="visits" class="visit-list"></ol>
+                        <p id="review-note" class="form-note" role="status"></p>
+                    </section>
+                    <div id="reach-row" class="reach-row" hidden>
+                        <span class="reach-mark" aria-hidden="true">↗</span>
+                        <span><strong id="reach-count">0</strong> blocked attempts</span>
+                    </div>
+                </section>
+
+                <section id="finish" class="finish" hidden>
+                    <p>Did you?</p>
+                    <div class="answers">
+                        <button type="button" data-outcome="yes">Yes</button>
+                        <button type="button" data-outcome="not_yet">Not yet</button>
+                    </div>
+                    <p id="answer-note" class="answer-note" aria-live="polite"></p>
+                    <button id="clear-answer" type="button" class="footer-link">Leave unanswered</button>
+                </section>
+            </section>
+
+            <section id="start-form" class="start-form" hidden>
+                <p class="eyebrow">START A BLOCK</p>
+                <h1>What do you mean to do?</h1>
+                <label for="new-intention">Your intention</label>
+                <textarea id="new-intention" rows="2" maxlength="4000" placeholder="Write one sentence"></textarea>
+                <label for="work-targets">Work list <span>optional</span></label>
+                <textarea id="work-targets" rows="2" placeholder="Sites or apps, one per line or separated by commas"></textarea>
+                <label for="distraction-targets">Distraction list <span>optional · used for labels</span></label>
+                <textarea id="distraction-targets" rows="2" placeholder="Sites or apps, one per line or separated by commas"></textarea>
+                <button id="start-session" class="primary-action start-action" type="button">Start block</button>
+                <p id="start-note" class="form-note" aria-live="polite"></p>
+            </section>
+
+            <section id="error" class="error" hidden role="status">
+                <span class="error-mark" aria-hidden="true">·</span>
+                <div><strong id="error-title"></strong><p id="error-copy"></p></div>
+            </section>
+
+            <footer class="footer">
+                <button id="new-block-toggle" class="footer-link" type="button" hidden>New block</button>
+                <button id="refresh" class="footer-link" type="button" aria-label="Refresh session details">Refresh</button>
+                <button id="history" class="footer-link" type="button" hidden>History <span aria-hidden="true">↗</span></button>
+                <button id="privacy" class="footer-link" type="button">Privacy</button>
+                <span class="footer-spacer"></span>
+                <button id="open-app" class="open-app" type="button">Open Twofold <span aria-hidden="true">↗</span></button>
+            </footer>
+        </main>
         <script src="popup.js"></script>
     </body>
 </html>

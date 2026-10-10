@@ -1,11 +1,12 @@
 import {useState} from "react";
+import {IntentionEditor} from "../IntentionEditor.tsx";
 import {ChevronLeftIcon, ErrorNote, OutcomePair, Page} from "../components.tsx";
 import {capital, counted, dayLabel, duration, host, latency, sourceWord, timeOfDay, timeRange} from "../format.ts";
 import {errorText, go, ledger, useLoad} from "../ledger.ts";
 import {dayKey, dayTitle} from "../period.ts";
 import {median} from "../summary.ts";
 import {Legend, Trace} from "../trace.tsx";
-import {variantOf, variantWord} from "../trace-model.ts";
+import {variantOf} from "../trace-model.ts";
 import type {ReviewVisit} from "../shared/types.ts";
 
 function visitMs(visit: ReviewVisit) {
@@ -32,24 +33,26 @@ function LabelCell({visit}: {visit: ReviewVisit}) {
         return <span className="label-word quiet">Not judged</span>;
     if (variant === "judging")
         return <span className="label-word quiet">Labelling…</span>;
-    if (variant === "unclear") {
-        return (
-            <div className="label-unclear">
-                <span className="label-word">Unclear. You decide.</span>
-                <span className="tap-pair" role="group" aria-label={`Label ${visit.appName}`}>
-                    <button type="button" className="btn btn-tap" disabled={busy} onClick={() => void tap("serves")}>{busy ? "Saving…" : "Served"}</button>
-                    <button type="button" className="btn btn-tap" disabled={busy} onClick={() => void tap("drifts")}>{busy ? "Saving…" : "Drifted"}</button>
-                </span>
-                {error != null && <span className="label-error" role="alert">Not saved: {error}</span>}
-            </div>
-        );
-    }
-
-    const source = visit.verdict?.source;
+    const source = visit.shownSource ?? visit.verdict?.source;
+    const label = variant === "serves" ? "Served" : "Drift";
+    const next = variant === "serves" ? "drifts" : "serves";
+    const nextWord = next === "serves" ? "Served" : "Drift";
     return (
         <span className="label-asserted">
-            <span className="label-word">{source === "user" ? `You marked it ${variantWord[variant].toLowerCase()}` : variantWord[variant]}</span>
-            {source != null && source !== "user" && <span className="label-source">{sourceWord(source)}</span>}
+            <button
+                type="button"
+                className="btn btn-tap label-toggle"
+                disabled={busy}
+                aria-label={`${visit.appName}: ${label}. Change to ${nextWord}`}
+                aria-busy={busy}
+                title={`Click to change to ${nextWord}`}
+                onClick={() => void tap(next)}
+            >
+                <span className="label-word">{busy ? "Saving…" : label}</span>
+                <span className="label-toggle-hint" aria-hidden="true">↔</span>
+            </button>
+            {source != null && <span className="label-source">{source === "user" ? "Your correction" : sourceWord(source)}</span>}
+            {error != null && <span className="label-error" role="alert">Not saved: {error}</span>}
         </span>
     );
 }
@@ -85,16 +88,16 @@ function VisitRow({visit, active, onActive}: {visit: ReviewVisit, active: boolea
 }
 
 /**
- * Where this session's labels came from, counted from the stored verdicts, with the model's measured median time.
+ * Where the displayed labels came from, with the stored model's measured median time.
  * Shows nothing until at least one label exists; no figure here is estimated.
  */
 function LabelSources({visits}: {visits: ReviewVisit[]}) {
     const verdicts = visits.flatMap((v) => (v.kind === "attention" && v.verdict != null ? [v.verdict] : []));
-    if (verdicts.length === 0)
+    if (!visits.some((v) => v.kind === "attention" && v.shown != null))
         return null;
 
     const sources = (["rule", "memory", "model", "user"] as const)
-        .map((source) => ({source, n: verdicts.filter((v) => v.source === source).length}))
+        .map((source) => ({source, n: visits.filter((v) => v.kind === "attention" && (v.shownSource ?? v.verdict?.source) === source).length}))
         .filter(({n}) => n > 0);
     const modelMs = median(verdicts.flatMap((v) => (v.source === "model" && v.latencyMs != null ? [v.latencyMs] : [])));
 
@@ -115,7 +118,7 @@ function LabelSources({visits}: {visits: ReviewVisit[]}) {
 
 /** The record first, the finish question last (US-004, US-005, US-010, BR-007). */
 export function Review({sessionId}: {sessionId: string}) {
-    const [load] = useLoad(() => ledger.review.get(sessionId), [sessionId], ["verdict:updated"]);
+    const [load] = useLoad(() => ledger.review.get(sessionId), [sessionId], ["verdict:updated", "session:changed"]);
     const [active, setActive] = useState<string | null>(null);
 
     if (load.state === "loading")
@@ -133,7 +136,6 @@ export function Review({sessionId}: {sessionId: string}) {
     const ordered = [...visits].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
     const attention = ordered.filter((v) => v.kind === "attention");
     const away = ordered.length - attention.length;
-    const unclear = attention.filter((v) => v.shown === "unclear").length;
     const variants = [...new Set(ordered.map(variantOf)), ...(unrecordedMs >= 1000 ? ["unrecorded" as const] : [])];
 
     return (
@@ -143,14 +145,13 @@ export function Review({sessionId}: {sessionId: string}) {
             </button>
             <article className="review">
                 <header className="review-head">
-                    <h1 className={session.intention === "" ? "display is-empty" : "display"}>
-                        {session.intention === "" ? "No intention was written for this session." : session.intention}
-                    </h1>
+                    <h1 className="section-title">Session review</h1>
+                    <IntentionEditor key={session.id} sessionId={session.id} intention={session.intention} />
                     <p className="meta">
                         {dayLabel(session.startedAt)} · {timeRange(session.startedAt, session.endedAt)} ·{" "}
                         {counted(attention.length, "window visit")}{away > 0 ? `, ${counted(away, "stretch", "stretches")} away` : ""}
                     </p>
-                    {session.intention === "" && <p className="hint">Nothing below is judged against a sentence. The record is still yours to read.</p>}
+                    {session.intention === "" && <p className="hint">Without an intention, labels use your lists and default to Drift. You can correct any label.</p>}
                 </header>
 
                 <Trace review={review} active={active} onActive={setActive} />
@@ -168,7 +169,7 @@ export function Review({sessionId}: {sessionId: string}) {
                 <section className="visits" aria-labelledby="visits-heading">
                     <div className="visits-head">
                         <h2 id="visits-heading" className="section-title">Windows you used</h2>
-                        {unclear > 0 && <p className="quiet">{capital(counted(unclear, "row"))} waiting for your word.</p>}
+                        <p className="quiet">Click a label to switch Served / Drift.</p>
                     </div>
                     {ordered.length === 0
                         ? <p className="empty">No windows were recorded in this session.</p>

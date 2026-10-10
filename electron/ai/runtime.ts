@@ -14,6 +14,7 @@ export const runtimeSettled = new Promise<void>((resolve) => settle = resolve);
 
 export const runtimeStatus = () => status;
 export const getJudge = () => judge;
+export const getModel = () => judge?.model ?? null;
 
 const modelPath = () => (app.isPackaged
     ? path.join(process.resourcesPath, "models", MODEL_FILE)

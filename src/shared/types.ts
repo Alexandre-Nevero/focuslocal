@@ -15,7 +15,7 @@ export type PeriodMode = "day" | "week" | "month";
 
 /** Renderer routes (docs/design.md §4.1): one bundle, selected by URL hash `#/<route>`. Dates are local `YYYY-MM-DD`. */
 export type Route =
-    | "idle" | "declare" | "permissions" | "running" | "assistant" | `review/${string}` | "history" | "privacy" | "mini"
+    | "idle" | "declare" | "permissions" | "running" | "assistant" | "coach" | `review/${string}` | "history" | "privacy" | "mini"
     | "dashboard" | `dashboard/${PeriodMode}/${string}`
     | "ledger" | `ledger/${string}`;
 
@@ -61,8 +61,10 @@ export type Verdict = {
 /** A visit as the review renders it. `verdict` is null while Harness is still judging ("Judging…"). */
 export type ReviewVisit = Visit & {
     verdict: Verdict | null,
-    /** The label after the display gate: a model label below tau (or with no tau) shows as unclear. */
-    shown: Label | null
+    /** The automatic review label; an uncertain stored verdict uses a deterministic rule fallback. */
+    shown: Label | null,
+    /** The source of the displayed label, which can differ from the stored uncertain verdict. */
+    shownSource?: Source | null
 };
 
 export type Review = {
@@ -82,6 +84,8 @@ export type HistoryRow = {
 };
 
 export type ModelStatus = "loading" | "ready" | "missing-file" | `failed:${string}`;
+
+export type CoachMessage = {role: "user" | "assistant", content: string};
 
 export type Privacy = {
     modelCalls: number,
@@ -112,10 +116,15 @@ export type LedgerEvents = {
 
 /** `window.ledger`, exposed by electron/preload.ts. Every call rejects with an Error on failure; render that, never fake data. */
 export type LedgerApi = {
+    coach: {
+        history(sessionId: string): Promise<CoachMessage[]>,
+        ask(sessionId: string, message: string, history: CoachMessage[]): Promise<{reply: string}>
+    },
     session: {
         start(input: {intention: string, targets: DeclaredTarget[]}): Promise<Session>,
         end(): Promise<{sessionId: string}>,
         current(): Promise<Session | null>
+        updateIntention(sessionId: string, intention: string): Promise<Session>
     },
     review: {
         get(sessionId: string): Promise<Review>,
@@ -152,7 +161,8 @@ export type LedgerApi = {
 
 /** IPC channel names: one per call, `<group>.<method>`. */
 export const ledgerChannels = [
-    "session.start", "session.end", "session.current",
+    "coach.ask", "coach.history",
+    "session.start", "session.end", "session.current", "session.updateIntention",
     "review.get", "review.tap", "review.answer",
     "history.list",
     "privacy.get", "privacy.dropMemory", "privacy.deleteFile",

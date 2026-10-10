@@ -1,7 +1,7 @@
 // The model stage (ADR-005, system-design §9 Harness step 3). No Electron imports: `npm run eval` loads this under
 // ELECTRON_RUN_AS_NODE. Wording tuned on the dev set (spike/dev-cases.json), never on eval/fixtures.json.
 import {
-    getLlama, InsufficientMemoryError, LlamaChatSession, QwenChatWrapper, type Llama, type LlamaDecisionContext, type LlamaJsonSchemaGrammar
+    getLlama, InsufficientMemoryError, LlamaChatSession, QwenChatWrapper, type Llama, type LlamaDecisionContext, type LlamaJsonSchemaGrammar, type LlamaModel
 } from "node-llama-cpp";
 import type {Label, ModelStage} from "../../src/shared/types.ts";
 
@@ -29,6 +29,7 @@ const reasonFirst = {
 
 export type Judge = {
     llama: Llama,
+    model: LlamaModel,
     decision: LlamaDecisionContext,
     session: LlamaChatSession,
     grammar: LlamaJsonSchemaGrammar<typeof reasonFirst>
@@ -57,7 +58,7 @@ async function load(modelPath: string, gpu: "auto" | false): Promise<Judge> {
             chatWrapper: new QwenChatWrapper({variation: "3.5", thoughts: "discourage"}),
             systemPrompt: SYSTEM
         });
-        return {llama, decision, session, grammar};
+        return {llama, model, decision, session, grammar};
     } catch (err) {
         await llama.dispose();
         throw err;

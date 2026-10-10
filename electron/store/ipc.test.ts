@@ -37,7 +37,10 @@ test("review taps and privacy preserve the local record lifecycle", async (t) =>
     };
     const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
     t.mock.module("electron", {exports: {
-        ipcMain: {handle: (channel: string, handler: (event: unknown, ...args: unknown[]) => unknown) => handlers.set(channel, handler)},
+        ipcMain: {
+            on: () => {},
+            handle: (channel: string, handler: (event: unknown, ...args: unknown[]) => unknown) => handlers.set(channel, handler)
+        },
         BrowserWindow: {getAllWindows: () => []},
         systemPreferences: {},
         powerMonitor: new EventEmitter()
@@ -53,7 +56,7 @@ test("review taps and privacy preserve the local record lifecycle", async (t) =>
         openMain: () => {}, toggleMiniWindow: () => {}, ROUTE_PATTERN: /^(home|history|privacy)$/
     }});
     t.mock.module("../ai/runtime.ts", {exports: {
-        runtimeStatus: () => "missing-file", getJudge: () => null, runtimeSettled: Promise.resolve()
+        runtimeStatus: () => "missing-file", getJudge: () => null, getModel: () => null, runtimeSettled: Promise.resolve()
     }});
     t.mock.module("../ai/judge.ts", {exports: {
         MODEL_ID: "test-local-model", judgeWindow: () => {
@@ -96,6 +99,32 @@ test("review taps and privacy preserve the local record lifecycle", async (t) =>
         .get();
     const verdicts = () => getDb().prepare("SELECT visit_id, source, label FROM verdict ORDER BY visit_id")
         .all();
+
+    await t.test("review decides unresolved rows automatically and corrections remain optional", () => {
+        seed();
+        const store = getDb();
+        store.prepare("INSERT INTO verdict (id, visit_id, source, label, confidence) VALUES ('unknown', 'first', 'model', 'unclear', NULL)").run();
+        store.prepare("INSERT INTO verdict (id, visit_id, source, label, confidence) VALUES ('unverified', 'second', 'model', 'serves', 0.9)").run();
+        store.prepare("UPDATE visit SET window_title = 'New tab' WHERE id = 'second'").run();
+        const review = invoke("review.get", "review") as Review;
+        assert.deepEqual(review.visits.map((v) => [v.id, v.shown, v.shownSource]), [
+            ["first", "serves", "rule"], ["second", "drifts", "rule"], ["later", "serves", "rule"]
+        ]);
+        assert.equal(review.visits[0]?.verdict?.label, "unclear", "keep original model evidence");
+        store.prepare("INSERT INTO setting (key, value) VALUES ('tau', '0.8')").run();
+        const verified = invoke("review.get", "review") as Review;
+        assert.equal(verified.visits.find((v) => v.id === "second")?.shown, "serves");
+        store.prepare("UPDATE verdict SET confidence = 0.2 WHERE visit_id = 'second'").run();
+        assert.equal((invoke("review.get", "review") as Review).visits.find((v) => v.id === "second")?.shown, "drifts");
+        invoke("review.tap", "first", "drifts");
+        invoke("review.tap", "second", "serves");
+        store.prepare("UPDATE visit SET kind = 'away' WHERE id = 'later'").run();
+        const corrected = invoke("review.get", "review") as Review;
+        assert.deepEqual(corrected.visits.map((v) => [v.id, v.shown, v.shownSource]), [
+            ["first", "drifts", "user"], ["second", "serves", "user"], ["later", null, null]
+        ]);
+        store.prepare("DELETE FROM setting WHERE key = 'tau'").run();
+    });
 
     await t.test("repeating one visit's tap cannot teach memory", async () => {
         seed();

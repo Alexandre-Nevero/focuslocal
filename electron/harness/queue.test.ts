@@ -75,7 +75,7 @@ test("judgment queue lifecycle", async (t) => {
     const handlers = new Map<string, Handler>();
     t.mock.module("electron", {exports: {
         BrowserWindow: {getAllWindows: () => []},
-        ipcMain: {handle: (channel: string, handler: Handler) => handlers.set(channel, handler)},
+        ipcMain: {on: () => {}, handle: (channel: string, handler: Handler) => handlers.set(channel, handler)},
         systemPreferences: {getMediaAccessStatus: () => "granted", isTrustedAccessibilityClient: () => true},
         powerMonitor: Object.assign(new EventEmitter(), {
             getSystemIdleTime: () => 0,
@@ -97,6 +97,7 @@ test("judgment queue lifecycle", async (t) => {
     t.mock.module("../ai/runtime.ts", {exports: {
         runtimeSettled: Promise.resolve(),
         getJudge: () => judge,
+        getModel: () => null,
         runtimeStatus: () => "ready"
     }});
 

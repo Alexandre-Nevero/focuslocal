@@ -1,0 +1,1 @@
+-- The store applies the versioned legacy-column rename in coach-migration.ts.

@@ -102,6 +102,128 @@ test("native host process preserves framing, database ownership and privacy", {t
     });
 
     migrate();
+    await t.test("popup distinguishes unavailable, empty, running and ended records and saves only ended answers", async () => {
+        const summary = frame({type: "popup", action: "summary", requestId: "summary"});
+        assert.deepEqual((await run(summary)).messages, [{running: null, latest: null, requestId: "summary"}]);
+        const db = new DatabaseSync(file);
+        db.prepare("INSERT INTO session (id, intention, started_at) VALUES (?, ?, ?)")
+            .run("popup-test", "", "2026-10-09T12:00:00.000Z");
+        db.close();
+        const running = (await run(summary)).messages[0] as {running: {id: string, intention: string}, latest: unknown};
+        assert.equal(running.running.id, "popup-test");
+        assert.equal(running.running.intention, "");
+        assert.equal(running.latest, null);
+        const answer = frame({type: "popup", action: "answer", requestId: "answer", sessionId: "popup-test", outcome: "yes"});
+        assert.deepEqual((await run(answer)).messages, [{ok: false, requestId: "answer"}]);
+        const endedDb = new DatabaseSync(file);
+        endedDb.prepare("UPDATE session SET ended_at = ? WHERE id = ?")
+            .run("2026-10-09T12:03:00.000Z", "popup-test");
+        endedDb.prepare(`INSERT INTO visit (id, session_id, app_name, window_title, url, started_at, last_seen_at, ended_at, kind)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+            .run("popup-visit", "popup-test", "Browser", "Private title", "https://docs.google.com/document",
+                "2026-10-09T12:00:00.000Z", "2026-10-09T12:01:00.000Z", "2026-10-09T12:01:00.000Z", "attention");
+        endedDb.close();
+        assert.deepEqual((await run(answer)).messages, [{ok: true, requestId: "answer"}]);
+        const ended = (await run(summary)).messages[0] as {running: unknown, latest: {outcome: string, visits: {url: string}[]}};
+        assert.equal(ended.running, null);
+        assert.equal(ended.latest.outcome, "yes");
+        const firstVisit = ended.latest.visits[0];
+        assert.ok(firstVisit);
+        assert.equal(firstVisit.url, "https://docs.google.com/document");
+        const cleanup = new DatabaseSync(file);
+        cleanup.exec("DELETE FROM visit; DELETE FROM session;");
+        cleanup.close();
+    });
+
+    await t.test("popup edits preserve sessions, answer clearing and label votes use canonical review behavior", async () => {
+        const db = new DatabaseSync(file);
+        db.exec("DELETE FROM verdict; DELETE FROM memory; DELETE FROM visit; DELETE FROM declared_target; DELETE FROM session;");
+        db.prepare("INSERT INTO session (id, intention, started_at, ended_at, outcome) VALUES (?, ?, ?, ?, ?)")
+            .run("ended-edit", "Old intention", "2026-10-09T12:00:00.000Z", "2026-10-09T12:10:00.000Z", "yes");
+        db.prepare("INSERT INTO session (id, intention, started_at) VALUES (?, ?, ?)")
+            .run("running-edit", "Running intention", "2026-10-09T13:00:00.000Z");
+        const insertVisit = db.prepare(`INSERT INTO visit
+            (id, session_id, app_name, window_title, url, started_at, last_seen_at, ended_at, kind)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+        insertVisit.run("fallback-visit", "ended-edit", "Browser", "Personal report", null,
+            "2026-10-09T12:00:00.000Z", "2026-10-09T12:01:00.000Z", "2026-10-09T12:01:00.000Z", "attention");
+        insertVisit.run("tap-one", "ended-edit", "Editor", "notes", null,
+            "2026-10-09T12:01:00.000Z", "2026-10-09T12:02:00.000Z", "2026-10-09T12:02:00.000Z", "attention");
+        insertVisit.run("tap-two", "ended-edit", "Editor", "notes", null,
+            "2026-10-09T12:02:00.000Z", "2026-10-09T12:03:00.000Z", "2026-10-09T12:03:00.000Z", "attention");
+        insertVisit.run("preserved-correction", "ended-edit", "Editor", "earlier correction", null,
+            "2026-10-09T12:03:00.000Z", "2026-10-09T12:04:00.000Z", "2026-10-09T12:04:00.000Z", "attention");
+        insertVisit.run("away-visit", "ended-edit", "Away", null, null,
+            "2026-10-09T12:03:00.000Z", "2026-10-09T12:04:00.000Z", "2026-10-09T12:04:00.000Z", "away");
+        insertVisit.run("running-visit", "running-edit", "Editor", "draft", null,
+            "2026-10-09T13:00:00.000Z", "2026-10-09T13:01:00.000Z", null, "attention");
+        db.prepare("INSERT INTO verdict (id, visit_id, source, label, confidence) VALUES (?, ?, ?, ?, ?)")
+            .run("raw-unclear", "fallback-visit", "model", "unclear", 0.1);
+        db.prepare("INSERT INTO verdict (id, visit_id, source, label) VALUES (?, ?, ?, ?)")
+            .run("existing-user-correction", "preserved-correction", "user", "drifts");
+        db.close();
+
+        const action = (value: object) => frame({type: "popup", ...value});
+        const operations = [
+            action({action: "updateIntention", requestId: "edit-running", sessionId: "running-edit", intention: "   "}),
+            action({action: "updateIntention", requestId: "edit-ended", sessionId: "ended-edit", intention: " Write a personal report "}),
+            action({action: "updateIntention", requestId: "edit-missing", sessionId: "missing", intention: "No row"}),
+            action({action: "answer", requestId: "answer-running", sessionId: "running-edit", outcome: "not_yet"}),
+            action({action: "answer", requestId: "answer-ended", sessionId: "ended-edit", outcome: "not_yet"}),
+            action({action: "answer", requestId: "clear-answer", sessionId: "ended-edit", outcome: "unanswered"}),
+            action({action: "tap", requestId: "tap-running", visitId: "running-visit", label: "serves"}),
+            action({action: "tap", requestId: "tap-away", visitId: "away-visit", label: "serves"}),
+            action({action: "tap", requestId: "tap-one-first", visitId: "tap-one", label: "serves"}),
+            action({action: "tap", requestId: "tap-one-again", visitId: "tap-one", label: "serves"}),
+            action({action: "tap", requestId: "tap-two", visitId: "tap-two", label: "serves"}),
+            action({action: "summary", requestId: "summary"})
+        ];
+        const result = await run(Buffer.concat(operations));
+        assert.equal(result.code, 0);
+        assert.deepEqual(result.messages.slice(0, 11), [
+            {ok: true, requestId: "edit-running"}, {ok: true, requestId: "edit-ended"}, {ok: false, requestId: "edit-missing"},
+            {ok: false, requestId: "answer-running"}, {ok: true, requestId: "answer-ended"}, {ok: true, requestId: "clear-answer"},
+            {ok: false, requestId: "tap-running"}, {ok: false, requestId: "tap-away"},
+            {ok: true, requestId: "tap-one-first"}, {ok: true, requestId: "tap-one-again"}, {ok: true, requestId: "tap-two"}
+        ]);
+
+        const check = new DatabaseSync(file, {readOnly: true});
+        try {
+            const sessions = check.prepare("SELECT id, intention, started_at, ended_at, outcome FROM session ORDER BY id").all();
+            assert.deepEqual(sessions.map((row) => ({...row})), [
+                {id: "ended-edit", intention: "Write a personal report", started_at: "2026-10-09T12:00:00.000Z",
+                    ended_at: "2026-10-09T12:10:00.000Z", outcome: "unanswered"},
+                {id: "running-edit", intention: "", started_at: "2026-10-09T13:00:00.000Z", ended_at: null, outcome: null}
+            ]);
+            assert.equal(check.prepare("SELECT count(*) AS n FROM visit").get()?.n, 6);
+            assert.deepEqual({...check.prepare("SELECT source, label FROM verdict WHERE visit_id = 'fallback-visit'").get()},
+                {source: "model", label: "unclear"}, "editing intention does not rerun or rewrite the stored model verdict");
+            assert.deepEqual({...check.prepare("SELECT source, label FROM verdict WHERE visit_id = 'preserved-correction'").get()},
+                {source: "user", label: "drifts"}, "editing intention preserves existing user corrections");
+            assert.deepEqual(check.prepare("SELECT visit_id, source, label FROM verdict WHERE visit_id IN ('tap-one', 'tap-two') ORDER BY visit_id").all()
+                .map((row) => ({...row})), [
+                {visit_id: "tap-one", source: "user", label: "serves"}, {visit_id: "tap-two", source: "user", label: "serves"}
+            ]);
+            assert.equal(check.prepare("SELECT tap_count FROM memory").get()?.tap_count, 2,
+                "a repeated tap on one visit contributes only one distinct-visit vote");
+            const summary = result.messages[11] as {running: {intention: string}, latest: {intention: string, outcome: string,
+                visits: {id: string, label: string | null, shown: string | null, shownSource: string | null}[]}};
+            assert.equal(summary.running.intention, "");
+            assert.equal(summary.latest.intention, "Write a personal report");
+            assert.equal(summary.latest.outcome, "unanswered");
+            const fallback = summary.latest.visits.find((visit) => visit.id === "fallback-visit");
+            assert.deepEqual([fallback?.shown, fallback?.shownSource], ["serves", "rule"],
+                "summary resolves raw unclear using the saved intention and exposes the display source");
+            for (const visit of summary.latest.visits.filter((row) => row.label != null))
+                assert.ok(["serves", "drifts"].includes(visit.shown ?? ""), "summary displays binary labels, not raw unclear");
+            assert.deepEqual(summary.latest.visits.find((visit) => visit.id === "tap-one")?.shownSource, "user");
+        } finally {
+            check.close();
+        }
+        const cleanup = new DatabaseSync(file);
+        cleanup.exec("DELETE FROM verdict; DELETE FROM memory; DELETE FROM visit; DELETE FROM declared_target; DELETE FROM session;");
+        cleanup.close();
+    });
     await t.test("fragmented and coalesced UTF-8 frames upsert only browser_tab", async () => {
         const longTitle = `${tab.title}${"authored ".repeat(80)}`;
         const first = frame({...tab, title: longTitle});

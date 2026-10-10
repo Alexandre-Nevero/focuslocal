@@ -1,4 +1,5 @@
 import {useState} from "react";
+import {IntentionEditor} from "../IntentionEditor.tsx";
 import {Clock, ErrorNote} from "../components.tsx";
 import {errorText, ledger, useCaptureState} from "../ledger.ts";
 import type {Session} from "../shared/types.ts";
@@ -26,9 +27,7 @@ export function Running({session, variant = "default"}: {session: Session, varia
 
     return (
         <section className={assistant ? "running running-assistant" : "running"}>
-            <p className={session.intention === "" ? "running-intention is-empty" : "running-intention"}>
-                {session.intention === "" ? "No intention written for this session." : session.intention}
-            </p>
+            <IntentionEditor key={session.id} sessionId={session.id} intention={session.intention} />
 
             <p className="running-clock" aria-live="off">
                 {capture === "ok"

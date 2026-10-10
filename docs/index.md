@@ -21,7 +21,7 @@ There is no decision ledger in this set. Precedence is:
 | How it is built | [system-design.md](system-design.md) | Owned by Bennett Payoyo. Shell and runtime chosen in ADR-003 |
 | Stored shape | [data-model.md](data-model.md) | SQLite types are an assumption |
 | Routes, components, visual states | [design.md](design.md) | In-app routes, not HTTP |
-| Why a choice was made | [ADRs](adr/) | ADR-001 silence. ADR-002 harness order. ADR-003 Electron and node-llama-cpp. ADR-004 three OSes and frontends. ADR-005 System One then the small model, superseded in part by ADR-011. ADR-006 the template Vite build. ADR-007 Windows first. ADR-008 awareness. ADR-011 coach, System One judge, companion. ADR-012 MEANT's loop on this machine: block, cycle, saved lists, presets, the question, switches, day and month. ADR-013 the public name is Twofold. ADR-014 the coach reads the local record |
+| Why a choice was made | [ADRs](adr/) | ADR-001 silence. ADR-002 harness order. ADR-003 Electron and node-llama-cpp. ADR-004 three OSes and frontends. ADR-005 System One then the small model, superseded in part by ADR-011. ADR-006 the template Vite build. ADR-007 Windows first. ADR-008 awareness. ADR-011 coach, System One judge, companion. ADR-012 MEANT's loop on this machine: block, cycle, saved lists, presets, the question, switches, day and month. ADR-013 the public name is Twofold. ADR-014 the coach reads the local record. ADR-016 the companion and coach share one collapsible window. ADR-017 automatic binary review labels and correction. ADR-018 functional popup states and evidence-first review. ADR-019 extension controls share the desktop session record. ADR-020 companion taps open the shared session controls popover, superseded on foreground-based routing by ADR-022. ADR-021 the Attention breakdown card. ADR-022 companion destination follows the foreground app. ADR-023 coach chat uses the existing local model and replies only on Send. ADR-024 Coach is a drawer over Dashboard |
 | Which docs were deferred | [context.md](../context.md) | Tests, pitch, security, and the build plan wait on a reason written there |
 
 ## 0.5 Active semantic overlays
@@ -45,6 +45,8 @@ No ledger, so no overlay rows. A later decision updates the owning doc in the sa
 Not generated, on purpose, from the override in [`context.md`](../context.md). `tests.md`, `pitch.md`, `release.md`, `onboarding.md`, `security.md`, `operations.md`, `ledger.md`, `changes.md`, `methods.md`, `build.md`, and the phase plan.
 
 ## References
+
+- [ADR-025: Coach history schema recovery](adr/ADR-025-coach-history-schema-recovery.md)
 
 - [`idea.md`](../idea.md)
 - [`context.md`](../context.md)

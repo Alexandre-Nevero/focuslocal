@@ -3,21 +3,21 @@ import {randomUUID} from "node:crypto";
 import {setTimeout as sleep} from "node:timers/promises";
 import {BrowserWindow, ipcMain, systemPreferences} from "electron";
 import {closeDb, getDb} from "./store/db.ts";
+import {readReview, tapVisit, updateSessionIntention} from "./store/review.ts";
 import {dbPath, widgetFilePath} from "./paths.ts";
-import {runtimeStatus} from "./ai/runtime.ts";
+import {getModel, runtimeSettled, runtimeStatus} from "./ai/runtime.ts";
+import {askCoach, type CoachTurn} from "./ai/coach.ts";
 import {MODEL_ID} from "./ai/judge.ts";
 import {startCapture, stopCapture} from "./capture/poller.ts";
-import {memoryKey} from "./harness/memory.ts";
 import {discardJudgments} from "./harness/queue.ts";
 import {openMain, ROUTE_PATTERN, toggleMiniWindow} from "./windows.ts";
 import type {
-    DeclaredTarget, HistoryRow, Label, LedgerChannel, LedgerEvents, Outcome, Permissions, PermissionState, Privacy, Review,
-    ReviewVisit, Route, Session, Source, Verdict
+    DeclaredTarget, HistoryRow, LedgerChannel, LedgerEvents, Outcome, Permissions, PermissionState, Privacy, Review,
+    Route, Session
 } from "../src/shared/types.ts";
 
 type Row = Record<string, unknown>;
 const str = (v: unknown) => (v == null ? null : String(v));
-const num = (v: unknown) => (v == null ? null : Number(v));
 
 /** Pushes an event to every window (main, popover, mini). */
 export function emit<E extends keyof LedgerEvents>(event: E, payload: LedgerEvents[E]) {
@@ -47,120 +47,114 @@ function runningSession(): Session | null {
     return row == null ? null : readSession(row);
 }
 
+
+function getReview(sessionId: string): Review {
+    return readReview(getDb(), sessionId);
+}
+
 function readTau(): number | null {
     const row = getDb().prepare("SELECT value FROM setting WHERE key = 'tau'")
         .get();
     return row == null ? null : Number(row.value);
 }
 
-const durationMs = (from: string, to: string) => Math.max(0, Date.parse(to) - Date.parse(from));
-
-function getReview(sessionId: string): Review {
-    const db = getDb();
-    const sessionRow = db.prepare("SELECT * FROM session WHERE id = ?").get(sessionId);
-    if (sessionRow == null)
-        throw new Error(`No session ${sessionId}`);
-
-    const session = readSession(sessionRow);
-    const tau = readTau();
-    const rows = db.prepare(`
-        SELECT v.*, d.id AS d_id, d.memory_id, d.source, d.label, d.reason, d.model_id, d.model_stage, d.latency_ms, d.confidence
-        FROM visit v LEFT JOIN verdict d ON d.visit_id = v.id
-        WHERE v.session_id = ? ORDER BY v.started_at
-    `).all(sessionId);
-
-    const visits = rows.map((r): ReviewVisit => {
-        const verdict: Verdict | null = r.d_id == null
-            ? null
-            : {
-                id: String(r.d_id),
-                visitId: String(r.id),
-                memoryId: str(r.memory_id),
-                source: String(r.source) as Source,
-                label: String(r.label) as Label,
-                reason: str(r.reason),
-                modelId: str(r.model_id),
-                modelStage: str(r.model_stage) as Verdict["modelStage"],
-                latencyMs: num(r.latency_ms),
-                confidence: num(r.confidence)
-            };
-        // Display gate (system-design §9): a model label below tau, or with no tau yet, shows as unclear.
-        const gated = verdict?.source === "model" && (tau == null || verdict.confidence == null || verdict.confidence < tau);
-
-        return {
-            id: String(r.id),
-            sessionId,
-            appName: String(r.app_name),
-            windowTitle: str(r.window_title),
-            url: str(r.url),
-            startedAt: String(r.started_at),
-            lastSeenAt: String(r.last_seen_at),
-            endedAt: str(r.ended_at),
-            kind: r.kind === "away" ? "away" : "attention",
-            verdict,
-            shown: verdict == null ? null : gated ? "unclear" : verdict.label
-        };
-    });
-
-    const sessionEnd = session.endedAt ?? new Date().toISOString();
-    const recordedMs = visits.reduce((sum, v) => sum + durationMs(v.startedAt, v.endedAt ?? v.lastSeenAt), 0);
-
-    return {session, visits, unrecordedMs: Math.max(0, durationMs(session.startedAt, sessionEnd) - recordedMs)};
-}
-
-/** A tap is the user's verdict for that visit, and one vote toward memory (applied by Harness only at tap_count >= 2, BR-004). */
 function tap(visitId: string, label: "serves" | "drifts") {
-    const db = getDb();
-    const visit = db.prepare("SELECT app_name, exec_name, window_title, url FROM visit WHERE id = ?").get(visitId);
-    if (visit == null)
-        throw new Error(`No visit ${visitId}`);
-
-    db.exec("BEGIN");
-    try {
-        db.prepare(`
-            INSERT INTO verdict (id, visit_id, source, label) VALUES (?, ?, 'user', ?)
-            ON CONFLICT (visit_id) DO UPDATE SET source = 'user', label = excluded.label, memory_id = NULL, reason = NULL,
-                model_id = NULL, model_stage = NULL, latency_ms = NULL, confidence = NULL
-        `).run(randomUUID(), visitId, label);
-
-        const matchKey = memoryKey({
-            appName: String(visit.app_name),
-            execName: str(visit.exec_name),
-            title: str(visit.window_title),
-            url: str(visit.url)
-        });
-        if (matchKey != null) {
-            const previous = db.prepare("SELECT id, label FROM memory WHERE match_key = ?").get(matchKey);
-            if (previous != null && previous.label !== label)
-                db.prepare("UPDATE verdict SET memory_vote_id = NULL WHERE memory_vote_id = ?").run(String(previous.id));
-            const learned = db.prepare(`
-                INSERT INTO memory (id, match_key, label, tap_count) VALUES (?, ?, ?, 0)
-                ON CONFLICT (match_key) DO UPDATE SET
-                    tap_count = CASE WHEN label = excluded.label THEN tap_count ELSE 0 END,
-                    label = excluded.label
-                RETURNING id
-            `).get(randomUUID(), matchKey, label)!;
-            const memoryId = String(learned.id);
-            const vote = db.prepare("UPDATE verdict SET memory_vote_id = ? WHERE visit_id = ? AND memory_vote_id IS NOT ?")
-                .run(memoryId, visitId, memoryId);
-            if (vote.changes > 0)
-                db.prepare("UPDATE memory SET tap_count = tap_count + 1 WHERE id = ?").run(memoryId);
-        }
-        db.exec("COMMIT");
-    } catch (err) {
-        db.exec("ROLLBACK");
-        throw err;
-    }
+    tapVisit(getDb(), visitId, label);
     emit("verdict:updated", {visitId});
 }
 
+function coachTurns(value: unknown): CoachTurn[] {
+    if (!Array.isArray(value) || value.length > 100)
+        throw new TypeError("history must be an array of at most 100 turns");
+    return value.slice(-12).map((entry) => {
+        const turn = entry as {role?: unknown, content?: unknown};
+        const role = oneOf(turn?.role, ["user", "assistant"], "history role");
+        const content = text(turn?.content, "history content");
+        if (content.length > 1200)
+            throw new Error("History turn is too long");
+        return {role, content};
+    });
+}
+
+function coachRecord(db: ReturnType<typeof getDb>, sessionId: string) {
+    const session = db.prepare("SELECT id, intention, ended_at, outcome FROM session WHERE id = ?").get(sessionId);
+    if (session == null || session.ended_at == null)
+        throw new Error("The coach is available after a session ends");
+    const review = getReview(sessionId);
+    const visits = review.visits.filter((visit) => visit.kind === "attention");
+    const allSessions = db.prepare("SELECT id, outcome FROM session WHERE ended_at IS NOT NULL ORDER BY ended_at DESC LIMIT 30").all();
+    const byLabel = {serves: 0, drifts: 0, unclear: 0};
+    const sourceCounts = {rule: 0, memory: 0, model: 0, user: 0};
+    for (const visit of visits) {
+        if (visit.shown != null)
+            byLabel[visit.shown]++;
+        if (visit.shownSource != null)
+            sourceCounts[visit.shownSource]++;
+    }
+    const durationByLabel: Record<string, number> = {serves: 0, drifts: 0, unclear: 0};
+    const durationByApp = new Map<string, number>();
+    const humanDuration = (ms: number) => {
+        const seconds = Math.max(0, Math.round(ms / 1000));
+        if (seconds < 60) return `${seconds} seconds`;
+        const minutes = Math.floor(seconds / 60);
+        const remaining = seconds % 60;
+        return `${minutes} ${minutes === 1 ? "minute" : "minutes"}` + (remaining === 0 ? "" : ` ${remaining} seconds`);
+    };
+    const durationMs = (visit: Review["visits"][number]) => Math.max(0,
+        Date.parse(visit.endedAt ?? visit.lastSeenAt) - Date.parse(visit.startedAt));
+    for (const visit of visits)
+        durationByApp.set(visit.appName, (durationByApp.get(visit.appName) ?? 0) + durationMs(visit));
+    for (const row of allSessions) {
+        const priorReview = readReview(db, String(row.id));
+        for (const visit of priorReview.visits) {
+            if (visit.kind !== "attention" || visit.shown == null)
+                continue;
+            durationByLabel[visit.shown] = (durationByLabel[visit.shown] ?? 0) + durationMs(visit);
+        }
+    }
+    const repeatedApps = db.prepare(`
+        SELECT app_name FROM visit WHERE kind = 'attention' GROUP BY app_name
+        HAVING COUNT(DISTINCT session_id) > 1 ORDER BY COUNT(DISTINCT session_id) DESC LIMIT 8
+    `).all()
+        .map((row) => String(row.app_name));
+    const outcomes = {yes: 0, not_yet: 0, unanswered: 0};
+    for (const row of db.prepare("SELECT COALESCE(outcome, 'unanswered') AS outcome, count(*) AS n FROM session WHERE ended_at IS NOT NULL GROUP BY outcome").all()) {
+        const outcome = String(row.outcome);
+        if (outcome in outcomes) outcomes[outcome as keyof typeof outcomes] = Number(row.n);
+    }
+    const appTimes = [...durationByApp].sort((a, b) => b[1] - a[1]);
+    return {
+        session: {
+            intention: String(session.intention),
+            outcome: String(session.outcome ?? "unanswered"),
+            visits: visits.slice(-24).map((visit) => ({
+                app: visit.appName,
+                label: visit.shown,
+                source: visit.shownSource,
+                duration: humanDuration(durationMs(visit))
+            })),
+            timeByApp: Object.fromEntries(appTimes.slice(0, 20).map(([app, ms]) => [app, humanDuration(ms)])),
+            otherAppTime: humanDuration(appTimes.slice(20).reduce((sum, [, ms]) => sum + ms, 0)),
+            labels: byLabel,
+            sources: sourceCounts,
+            awayVisits: review.visits.filter((visit) => visit.kind === "away").length,
+            away: humanDuration(review.visits.filter((visit) => visit.kind === "away").reduce((sum, visit) => sum + durationMs(visit), 0)),
+            unrecorded: humanDuration(review.unrecordedMs)
+        },
+        local: {sessions: Number(db.prepare("SELECT count(*) AS n FROM session WHERE ended_at IS NOT NULL").get()!.n), outcomes,
+            timeByLabel: Object.fromEntries(Object.entries(durationByLabel).map(([label, ms]) => [label, humanDuration(ms)])), repeatedApps}
+    };
+}
+
 let deleting: Promise<void> | null = null;
+let coachInFlight: Promise<unknown> | null = null;
 function deleteFile() {
     return deleting ??= removeFile().finally(() => deleting = null);
 }
 
 async function removeFile() {
     stopCapture();
+    await coachInFlight?.catch(() => undefined);
     discardJudgments();
     closeDb();
     const files = [dbPath(), `${dbPath()}-wal`, `${dbPath()}-shm`, widgetFilePath()];
@@ -246,8 +240,86 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
         openMain(`review/${running.id}`);
         return {sessionId: running.id};
     },
+    "session.updateIntention"(sessionId, intention) {
+        const id = text(sessionId, "sessionId");
+        const sentence = text(intention, "intention");
+        if (sentence.length > 4000)
+            throw new Error("Intention is too long");
+        updateSessionIntention(getDb(), id, sentence);
+        emit("session:changed", {sessionId: runningSession()?.id ?? null});
+        return readSession(getDb().prepare("SELECT * FROM session WHERE id = ?")
+            .get(id)!);
+    },
     "session.current": runningSession,
     "review.get": (sessionId) => getReview(text(sessionId, "sessionId")),
+    "coach.history": (sessionId) => {
+        const id = text(sessionId, "sessionId");
+        const session = getDb().prepare("SELECT ended_at FROM session WHERE id = ?")
+            .get(id);
+        if (session == null || session.ended_at == null)
+            throw new Error("The coach is available after a session ends");
+        return getDb().prepare(`
+            SELECT role, content FROM (
+                SELECT rowid, role, content FROM coach_turn WHERE session_id = ? ORDER BY rowid DESC LIMIT 100
+            ) ORDER BY rowid
+        `)
+            .all(id)
+            .map((row) => ({role: String(row.role) as CoachTurn["role"], content: String(row.content)}));
+    },
+    "coach.ask": async (sessionId, message, rawHistory) => {
+        const id = text(sessionId, "sessionId");
+        const prompt = text(message, "message").trim();
+        if (prompt.length === 0 || prompt.length > 1000)
+            throw new Error("Message must contain 1 to 1000 characters");
+        const history = coachTurns(rawHistory);
+        const previous = coachInFlight;
+        const operation = (async () => {
+            await previous?.catch(() => undefined);
+            if (deleting != null)
+                throw new Error("Local file deletion in progress");
+            let readinessTimer: ReturnType<typeof setTimeout> | undefined;
+            try {
+                await Promise.race([
+                    runtimeSettled,
+                    new Promise<never>((_, reject) => {
+                        readinessTimer = setTimeout(() => reject(new Error("On-device coach readiness timed out")), 30_000);
+                    })
+                ]);
+            } finally {
+                if (readinessTimer != null)
+                    clearTimeout(readinessTimer);
+            }
+            if (deleting != null)
+                throw new Error("Local file deletion in progress");
+            const model = getModel();
+            if (model == null)
+                throw new Error(`On-device coach is unavailable (${runtimeStatus()})`);
+            const db = getDb();
+            const record = coachRecord(db, id);
+            const reply = await askCoach(model, record, prompt, history);
+            if (deleting != null)
+                throw new Error("Local file deletion in progress");
+            db.exec("BEGIN");
+            try {
+                const insert = db.prepare("INSERT INTO coach_turn (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)");
+                const now = new Date().toISOString();
+                insert.run(randomUUID(), id, "user", prompt, now);
+                insert.run(randomUUID(), id, "assistant", reply, now);
+                db.exec("COMMIT");
+            } catch (error) {
+                db.exec("ROLLBACK");
+                throw error;
+            }
+            return {reply};
+        })();
+        coachInFlight = operation;
+        try {
+            return await operation;
+        } finally {
+            if (coachInFlight === operation)
+                coachInFlight = null;
+        }
+    },
     "review.tap": (visitId, label) => tap(text(visitId, "visitId"), oneOf(label, ["serves", "drifts"], "label")),
     "review.answer"(sessionId, outcome) {
         const result = getDb()
@@ -295,6 +367,15 @@ const handlers: Record<LedgerChannel, (...args: unknown[]) => unknown> = {
         openMain(target as Route);
     }
 };
+
+/** End through the same capture and store lifecycle used by the desktop controls. */
+export function endSessionFromExtension() {
+    if (deleting != null)
+        throw new Error("Local file deletion in progress");
+    if (runningSession() == null)
+        return;
+    return handlers["session.end"]();
+}
 
 /**
  * Launch after a crash or a quit mid-session (system-design §9 capture step 6): open visits end at their last tick, the
@@ -353,4 +434,37 @@ export function registerIpc() {
                 throw new Error("Local file deletion in progress");
             return handler(...args);
         });
+}
+
+/** Refresh desktop views after a native-host commit; never recreate a deleted Store. */
+export function watchExternalStoreChanges() {
+    let previousDb: ReturnType<typeof getDb> | null = null;
+    let previousVersion: unknown;
+    const timer = setInterval(() => {
+        if (deleting != null || !fs.existsSync(dbPath())) {
+            previousDb = null;
+            return;
+        }
+        try {
+            const db = getDb();
+            const version = db.prepare("PRAGMA data_version").get()?.data_version;
+            if (previousDb === db && previousVersion !== version) {
+                emit("session:changed", {sessionId: runningSession()?.id ?? null});
+                emit("verdict:updated", {visitId: ""});
+            }
+            previousDb = db;
+            previousVersion = version;
+        } catch {
+            // A locked or removed file will be checked again on the next tick.
+        }
+    }, 1000);
+    timer.unref();
+    return () => clearInterval(timer);
+}
+
+/** Start uses the canonical capture lifecycle even when requested by the browser. */
+export function startSessionFromExtension(input: unknown) {
+    if (deleting != null)
+        throw new Error("Local file deletion in progress");
+    return handlers["session.start"](input);
 }

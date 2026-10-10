@@ -77,7 +77,7 @@ export function outcomeWord(outcome: Outcome | null, running = false) {
 /** Where a shown label came from, in the person's words. */
 export function sourceWord(source: Source) {
     switch (source) {
-        case "rule": return "from your list";
+        case "rule": return "from local rules";
         case "memory": return "from memory";
         case "model": return "from the on-device model";
         case "user": return "marked by you";

@@ -8,7 +8,7 @@ import {
 } from "../period.ts";
 import {driftedWindows, labelTotals, windowMs} from "../summary.ts";
 import {Legend, Trace} from "../trace.tsx";
-import {traceOrder, variantWord, type Variant} from "../trace-model.ts";
+import {traceOrder, variantWord} from "../trace-model.ts";
 import type {HistoryRow, Review} from "../shared/types.ts";
 
 type Reviews = Map<string, Review | null> | null;
@@ -281,33 +281,62 @@ function DriftedWindows({reviews}: {reviews: Review[] | null}) {
     );
 }
 
-function WindowLabels({reviews, sessions, phrase}: {reviews: Review[] | null, sessions: number, phrase: string}) {
+function AttentionBreakdown({reviews, mode}: {reviews: Review[] | null, mode: Period["mode"]}) {
     const totals = reviews == null ? null : labelTotals(reviews);
-    // Served and Drifted always show; the rest appear only when they hold time, so empty rows do not crowd the card.
-    const shown: Variant[] = traceOrder.filter((v) => v === "serves" || v === "drifts" || (totals?.[v] ?? 0) > 0);
+    const attention = totals == null ? 0 : windowMs(totals);
+    const categories = totals == null ? [] : [
+        {key: "attention", label: "Attention", ms: attention},
+        {key: "away", label: "Away", ms: totals.away},
+        {key: "unrecorded", label: "Not recorded", ms: totals.unrecorded}
+    ];
+    const total = categories.reduce((sum, item) => sum + item.ms, 0);
+    const outer = categories.filter((item) => item.ms > 0);
+    const inner = traceOrder.filter((variant) => variant !== "away" && variant !== "unrecorded" && (totals?.[variant] ?? 0) > 0);
+    const innerSummary = inner.map((variant) => `${variantWord[variant]} ${minutes(totals?.[variant] ?? 0)}`)
+        .join(" · ") || "no recorded windows";
 
     return (
-        <section className="card lower-card labels-card" aria-labelledby="labels-heading">
+        <section className="card lower-card attention-card" aria-labelledby="attention-heading">
             <div className="card-head">
-                <h2 id="labels-heading" className="card-title">Window labels</h2>
-                <p className="card-meta">{counted(sessions, "session")}</p>
+                <h2 id="attention-heading" className="card-label">Attention breakdown</h2>
+                <p className="card-meta attention-period">{mode}</p>
             </div>
-            <div className="labels-body">
-                <div className="labels-emblem" aria-hidden="true"><BrandMark size={96} /></div>
-                {totals == null
-                    ? <div className="skeleton skeleton-list" aria-label="Reading the windows…" />
-                    : (
-                        <dl className="labels-list">
-                            {shown.map((variant) => (
-                                <div key={variant}>
-                                    <dt><span className={`seg seg-${variant} swatch`} aria-hidden="true" />{variantWord[variant]}</dt>
-                                    <dd className="figure">{minutes(totals[variant])}</dd>
+            {totals == null
+                ? <div className="skeleton skeleton-chart" role="status" aria-label="Reading the windows…" />
+                : (
+                    <>
+                        <div className="attention-chart">
+                            <svg viewBox="0 0 240 240" role="img" aria-label={`Inner ring: ${innerSummary}. Outer ring: recorded Attention, Away, and Not recorded.`}>
+                                <circle className="attention-track" cx="120" cy="120" r="101" strokeWidth="17" />
+                                <circle className="attention-track" cx="120" cy="120" r="80" strokeWidth="11" />
+                                {outer.map((item, index) => {
+                                    const length = item.ms / total * 100;
+                                    const offset = outer.slice(0, index).reduce((sum, previous) => sum + previous.ms, 0) / total * 100;
+                                    return <circle key={item.key} className={`attention-arc attention-${item.key}`} cx="120" cy="120" r="101" strokeWidth="17" pathLength="100" strokeDasharray={`${length} ${100 - length}`} strokeDashoffset={-offset} transform="rotate(-90 120 120)" />;
+                                })}
+                                {inner.map((variant, index) => {
+                                    const length = totals[variant] / attention * 100;
+                                    const offset = inner.slice(0, index)
+                                        .reduce((sum, previous) => sum + totals[previous], 0) / attention * 100;
+                                    return <circle key={variant} className={`attention-arc attention-${variant}`} cx="120" cy="120" r="80" strokeWidth="11" pathLength="100" strokeDasharray={`${Math.max(0, length - 0.8)} ${100 - Math.max(0, length - 0.8)}`} strokeDashoffset={-offset} transform="rotate(-90 120 120)" />;
+                                })}
+                            </svg>
+                            <div className="attention-center">
+                                <strong>{minutes(attention)}</strong>
+                                <span>Attention</span>
+                            </div>
+                        </div>
+                        <dl className="attention-list">
+                            {categories.map((item) => (
+                                <div key={item.key}>
+                                    <dt><span className={`attention-dot attention-${item.key}`} aria-hidden="true" />{item.label}</dt>
+                                    <dd className="figure">{minutes(item.ms)}</dd>
                                 </div>
                             ))}
                         </dl>
-                    )}
-            </div>
-            <p className="card-note">Total minutes {phrase}.</p>
+                        <p className="attention-note">Attention is recorded window time, whatever its label. Inner ring: {innerSummary}.</p>
+                    </>
+                )}
         </section>
     );
 }
@@ -397,7 +426,7 @@ function DashboardBody({period, onPeriod}: {period: Period, onPeriod(next: Perio
                 <div className="dash-lower">
                     <RecentSessions rows={rows} highlight={overlayId} />
                     <DriftedWindows reviews={loadedReviews(ids, reviews)} />
-                    <WindowLabels reviews={loadedReviews(ids, reviews)} sessions={ended.length} phrase={phrase} />
+                    <AttentionBreakdown reviews={loadedReviews(ids, reviews)} mode={period.mode} />
                 </div>
             </div>
         </>

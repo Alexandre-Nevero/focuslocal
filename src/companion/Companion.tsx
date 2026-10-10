@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent} from "react";
 import {ErrorNote} from "../components.tsx";
 import {ledger} from "../ledger.ts";
-import {Coach} from "../screens/Coach.tsx";
+import {Idle} from "../screens/Idle.tsx";
 import {Running} from "../screens/Running.tsx";
 import type {AssistantVisualState, AssistantWindowState, Session} from "../shared/types.ts";
 import poseCoach from "../assets/mascot/pose-coach.svg";
@@ -198,7 +198,7 @@ export function Assistant({session, loading, error}: AssistantProps) {
     }
 
     return (
-        <main className="assistant-surface assistant-panel" aria-label="Twofold assistant">
+        <main className="assistant-surface assistant-panel" aria-label="Twofold session controls">
             <header className="assistant-head">
                 <Mascot state="expanded" className="assistant-panel-mascot" />
                 <button type="button" className="icon-btn assistant-close" aria-label="Close assistant" onClick={() => void collapse()}>
@@ -209,8 +209,8 @@ export function Assistant({session, loading, error}: AssistantProps) {
                 {loading && <p className="status">Opening Twofold…</p>}
                 {error != null && <ErrorNote title="The current session could not be read." error={String(error)} />}
                 {!loading && error == null && (session == null
-                    ? <Coach />
-                    : <Running session={session} variant="assistant" />)}
+                    ? <Idle />
+                    : <Running session={session} />)}
             </div>
         </main>
     );

@@ -48,7 +48,7 @@ test("outcome words do not praise or scold (BR-002)", () => {
 });
 
 test("every verdict source has a plain phrase (US-004)", () => {
-    assert.equal(sourceWord("rule"), "from your list");
+    assert.equal(sourceWord("rule"), "from local rules");
     assert.equal(sourceWord("memory"), "from memory");
     assert.equal(sourceWord("model"), "from the on-device model");
     assert.equal(sourceWord("user"), "marked by you");

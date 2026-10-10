@@ -3,6 +3,7 @@ import {readFileSync} from "node:fs";
 import {DatabaseSync} from "node:sqlite";
 import {test} from "node:test";
 import {labelWindow} from "../harness/harness.ts";
+import {repairCoachTurnContent} from "./coach-migration.ts";
 import type {Label} from "../../src/shared/types.ts";
 
 test("legacy aggregate memory loses eligibility without losing historical labels", async (t) => {
@@ -33,4 +34,34 @@ test("legacy aggregate memory loses eligibility without losing historical labels
     const next = await labelWindow({intention: "Finish the authored note", targets: []},
         {appName: "Notepad", execName: "notepad.exe", title: "Authored note", url: null}, recall, null);
     assert.deepEqual([next.source, next.label, next.memoryId], ["model", "unclear", null]);
+});
+
+test("coach content migration preserves legacy turns and is a no-op on the canonical table", (t) => {
+    const db = new DatabaseSync(":memory:");
+    t.after(() => db.close());
+    db.exec(`CREATE TABLE coach_turn (
+        id TEXT PRIMARY KEY, session_id TEXT NOT NULL, role TEXT NOT NULL,
+        text TEXT NOT NULL, created_at TEXT NOT NULL
+    )`);
+    db.prepare("INSERT INTO coach_turn VALUES (?, ?, ?, ?, ?)")
+        .run("turn-1", "session-1", "user", "Keep this conversation", "2026-10-10T01:00:00Z");
+
+    repairCoachTurnContent(db);
+    assert.deepEqual({...db.prepare("SELECT id, session_id, role, content, created_at FROM coach_turn").get()}, {
+        id: "turn-1", session_id: "session-1", role: "user", content: "Keep this conversation", created_at: "2026-10-10T01:00:00Z"
+    });
+    repairCoachTurnContent(db);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM coach_turn").get()?.count, 1);
+
+    const fresh = new DatabaseSync(":memory:");
+    t.after(() => fresh.close());
+    fresh.exec(`CREATE TABLE coach_turn (
+        id TEXT PRIMARY KEY, session_id TEXT NOT NULL, role TEXT NOT NULL,
+        content TEXT NOT NULL, created_at TEXT NOT NULL
+    )`);
+    repairCoachTurnContent(fresh);
+    assert.deepEqual(fresh.prepare("PRAGMA table_info(coach_turn)").all()
+        .map((row) => row.name), [
+        "id", "session_id", "role", "content", "created_at"
+    ]);
 });

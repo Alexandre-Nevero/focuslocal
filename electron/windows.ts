@@ -1,12 +1,13 @@
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {app, BrowserWindow, Menu, nativeImage, screen, Tray} from "electron";
+import {activeWindow} from "@miniben90/x-win";
 import type {AssistantWindowState, Route} from "../src/shared/types.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const ROUTE_PATTERN = new RegExp(
-    "^(idle|declare|permissions|running|assistant|review/[\\w-]+|history|privacy|mini" +
+    "^(idle|declare|permissions|running|assistant|coach|review/[\\w-]+|history|privacy|mini" +
     "|dashboard(/(day|week|month)/\\d{4}-\\d{2}-\\d{2})?|ledger(/\\d{4}-\\d{2}-\\d{2})?)$"
 );
 
@@ -16,6 +17,7 @@ let mini: BrowserWindow | null = null;
 let assistant: BrowserWindow | null = null;
 let assistantCollapsedBounds: Electron.Rectangle | null = null;
 let assistantExpanded = false;
+let mainRoute: Route | null = null;
 let tray: Tray | null = null;
 
 function createWindow(route: Route, options: Electron.BrowserWindowConstructorOptions) {
@@ -48,9 +50,15 @@ function loadRoute(win: BrowserWindow, route: Route) {
 
 /** Shows the main window at a route, creating it if needed. */
 export function openMain(route: Route) {
+    mainRoute = route;
     if (mainWindow == null || mainWindow.isDestroyed()) {
         mainWindow = createWindow(route, {width: 960, height: 700, title: "Twofold", show: true});
         mainWindow.on("closed", () => mainWindow = null);
+        mainWindow.webContents.on("did-navigate-in-page", (_event, url, isMainFrame) => {
+            if (isMainFrame)
+                setAssistantForRoute(url);
+        });
+        mainWindow.webContents.on("did-navigate", (_event, url) => setAssistantForRoute(url));
     } else {
         loadRoute(mainWindow, route);
         mainWindow.show();
@@ -133,10 +141,12 @@ export function createAssistantWindow() {
         skipTaskbar: true,
         alwaysOnTop: true
     });
+    // The pet must not replace the desktop or dashboard as the foreground context on pointer down.
+    win.setFocusable(false);
     assistant = win;
     win.once("ready-to-show", () => {
         if (assistant === win) {
-            win.showInactive();
+            setAssistantForRoute(mainRoute == null ? "" : `#/${mainRoute}`);
             sendAssistantState();
         }
     });
@@ -172,8 +182,8 @@ export function moveAssistantBy(dx: number, dy: number) {
     if (assistant == null || assistant.isDestroyed() || assistantExpanded || !Number.isFinite(dx) || !Number.isFinite(dy))
         return;
     const bounds = assistant.getBounds();
-    const width = 56;
-    const height = 56;
+    const width = ASSISTANT_SIZE;
+    const height = ASSISTANT_SIZE;
     const candidate = {
         x: Math.round(bounds.x + dx),
         y: Math.round(bounds.y + dy),
@@ -201,29 +211,56 @@ export function collapseAssistant(): AssistantWindowState {
 export function toggleAssistant(): AssistantWindowState {
     if (assistant == null || assistant.isDestroyed())
         throw new Error("The assistant window is not available");
-    if (assistantExpanded)
-        return collapseAssistant();
+    collapseAssistant();
+    let foreground = null;
+    try {
+        foreground = activeWindow();
+    } catch {
+        // If native foreground detection fails, keep the reliable session-controls fallback.
+    }
+    const mainUrl = mainWindow == null || mainWindow.isDestroyed() ? "" : mainWindow.webContents.getURL();
+    const hashStart = mainUrl.indexOf("#/");
+    const mainHashRoute = hashStart < 0 ? "" : mainUrl.slice(hashStart + 2);
+    const currentMainRoute = mainHashRoute || mainRoute || "";
+    const dashboardForeground = mainWindow != null && !mainWindow.isDestroyed() && mainWindow.isFocused() &&
+        (currentMainRoute === "" || currentMainRoute === "idle" || /^dashboard(?:\/|$)/.test(currentMainRoute));
+    const explorerDesktopForeground = process.platform === "win32" && foreground?.info != null &&
+        ["explorer", "explorer.exe"].includes(foreground.info.execName.toLowerCase()) &&
+        foreground.title.trim().toLowerCase() === "program manager";
+    if (dashboardForeground || explorerDesktopForeground) {
+        if (popover != null && !popover.isDestroyed())
+            popover.hide();
+        openMain("coach");
+        return getAssistantState();
+    }
+    if (popover != null && !popover.isDestroyed() && popover.isVisible()) {
+        popover.hide();
+        return getAssistantState();
+    }
 
-    const collapsed = assistant.getBounds();
-    assistantCollapsedBounds = {
-        x: collapsed.x,
-        y: collapsed.y,
-        width: ASSISTANT_SIZE,
-        height: ASSISTANT_SIZE
-    };
-    const {workArea} = screen.getDisplayMatching(assistantCollapsedBounds);
-    const width = Math.min(380, workArea.width);
-    assistantExpanded = true;
-    assistant.setBounds({
-        x: workArea.x + workArea.width - width,
-        y: workArea.y,
-        width,
-        height: workArea.height
-    }, false);
-    assistant.show();
-    assistant.focus();
-    sendAssistantState();
+    const anchor = assistant.getBounds();
+    const {workArea} = screen.getDisplayMatching(anchor);
+    const win = preparePopover();
+    const {width, height} = win.getBounds();
+    const x = Math.min(Math.max(anchor.x + anchor.width - width, workArea.x), workArea.x + workArea.width - width);
+    const y = anchor.y - height - 8 >= workArea.y
+        ? anchor.y - height - 8
+        : Math.min(anchor.y + anchor.height + 8, workArea.y + workArea.height - height);
+    win.setPosition(Math.round(x), Math.round(Math.max(y, workArea.y)));
+    win.show();
+    win.focus();
     return getAssistantState();
+}
+
+function setAssistantForRoute(url: string) {
+    if (assistant == null || assistant.isDestroyed())
+        return;
+    const hashStart = url.indexOf("#/");
+    const route = hashStart < 0 ? "" : url.slice(hashStart + 2).split("/")[0];
+    if (route === "coach")
+        assistant.hide();
+    else
+        assistant.showInactive();
 }
 
 export function toggleMiniWindow() {

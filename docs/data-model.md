@@ -30,7 +30,7 @@ erDiagram
   SCHEMA_MIGRATION
 ```
 
-A session may have zero declared targets, zero visits, and zero coach turns. A visit has zero verdicts until Harness writes one, then exactly one. A verdict may cite memory as its classification source (`memory_id`) and separately may contribute one current learning vote (`memory_vote_id`). These are independent optional links, not a tap history. An eval case may have zero runs. Eval cases are not visits.
+A session may have zero declared targets, zero visits, and zero coach turns. A visit has zero verdicts until Harness writes one, then exactly one. Computed `ReviewVisit.shown` and `shownSource` supply a binary attention label even when the raw verdict is absent or unclear; these fields are derived and not stored ([ADR-017](adr/ADR-017-binary-review-label-correction.md)). A verdict may cite memory as its classification source (`memory_id`) and separately may contribute one current learning vote (`memory_vote_id`). These are independent optional links, not a tap history. An eval case may have zero runs. Eval cases are not visits.
 
 ## 2. Entities & Fields
 
@@ -151,6 +151,8 @@ The popup copies these into `declared_target` for one session. Editing the popup
 
 A turn exists only for a session that has ended. Drop memory does not delete these rows. Deleting the file does.
 
+Legacy databases may store turn content in `text`. The versioned compatibility repair renames that column to `content` without deleting turns and recognizes an existing Coach table when applying the canonical migration (ADR-025).
+
 ### Browser tab
 
 **Stored in:** SQLite table `browser_tab` · **Written by:** NativeHost
@@ -234,7 +236,7 @@ No field is stored for a future dashboard. Model-call count is a count of `verdi
 | Visit | `fk_visit_session` | foreign key, on delete cascade | Visits die with the session |
 | Visit | `ix_visit_session_started` | index (`session_id`, `started_at`) | The review lists a session's visits in order |
 | Verdict | `fk_verdict_visit` | foreign key, on delete cascade | The label dies with the visit |
-| Verdict | `uq_verdict_visit` | unique (`visit_id`) | One current label. A tap updates the row. It does not insert a second one. |
+| Verdict | `uq_verdict_visit` | unique (`visit_id`) | One current stored label. Clicking a review label card writes the opposite binary label and source user through the existing tap transaction. It does not insert a second verdict; the automatic fallback is not persisted as a user correction. |
 | Verdict | `fk_verdict_memory` | foreign key, on delete set null | Dropping memory keeps the old verdict and clears the link (US-008) |
 | Verdict | `memory_vote_id REFERENCES memory(id)` | foreign key, on delete set null | Forgetting memory releases current contributions without deleting historical labels |
 | Verdict | `ix_verdict_memory_vote` | index (`memory_vote_id`) | Clears all current contributions when a key's label changes |
@@ -250,7 +252,8 @@ No field is stored for a future dashboard. Model-call count is a count of `verdi
 
 - **Migration mechanism:** ordered SQL files (`electron/store/migrations/*.sql`) applied by Store at launch in filename order, recorded in `schema_migration(name, applied_at)`.
 - **Migration `003_memory_votes.sql`:** adds the nullable contribution FK and its index, then sets existing `memory.tap_count` to 0. Old aggregates cannot recover distinct supporting visits. Sessions, visits, memory labels, and historical verdict labels are retained; old memory needs fresh support before eligibility returns.
-- **Migration owed, not written:** `coach_turn`, `saved_target`, `block_hit`, and the cycle columns on `session`. Do not drop `reason` or the `reason` value of `model_stage`. Old verdicts keep them. Preset keywords are a file beside the app, not a table. The switches are rows in `setting`.
+- **Migration `004_coach_turn.sql`:** adds the locally stored `coach_turn` conversation table. Still owed: `saved_target`, `block_hit`, and the cycle columns on `session`. Do not drop `reason` or the `reason` value of `model_stage`. Old verdicts keep them. Preset keywords are a file beside the app, not a table. The switches are rows in `setting`.
+- **Review correction:** `review.tap` persists `serves` or `drifts` with source `user`. That stored correction takes precedence over automatic display resolution when history reopens. No new column or correction table is introduced. The computed fallback preserves the raw verdict and model metadata.
 - **Learning lifecycle:** a transaction writes the user's verdict and assigns its current contribution. Repeating the same label on the same visit does not increment support. A conflicting label clears that key's contribution links and resets its count before counting the current visit as 1. Other visits' historical labels remain unchanged; they can be tapped again to support the new label. Dropping memory clears both optional FKs through `ON DELETE SET NULL`, so the same visits can reteach after forgetting. This is current support, not lifetime deduplication ([ADR-010](adr/ADR-010-backend-work-ownership.md)).
 - **How a change rolls out:** add a column or table, use it, then remove the old shape in a later build. Do not rename a column in one step.
 - **Backfill strategy:** one local file, so a backfill is a single pass at launch. There is no fleet to watch.

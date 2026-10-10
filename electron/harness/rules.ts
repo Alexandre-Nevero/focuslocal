@@ -39,3 +39,15 @@ export function ruleLabel(targets: readonly DeclaredTarget[], w: WindowFacts): L
 
     return hit.role === "work" ? "serves" : "drifts";
 }
+
+/** A review fallback is a system decision; a missing model never requires a user's tap. */
+export function automaticLabel(session: {intention: string, targets: readonly DeclaredTarget[]}, w: WindowFacts): "serves" | "drifts" {
+    const declared = ruleLabel(session.targets, w);
+    if (declared === "serves" || declared === "drifts")
+        return declared;
+
+    const generic = new Set(["the", "this", "that", "with", "from", "and", "for", "finish", "complete", "work", "write", "draft", "make", "create", "build", "review", "today", "task", "project", "client", "my", "our"]);
+    const words = session.intention.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+    const evidence = `${w.appName} ${w.title ?? ""} ${hostOf(w.url) ?? ""}`.toLowerCase();
+    return words.some((word) => word.length >= 3 && !generic.has(word) && hasWord(evidence, word)) ? "serves" : "drifts";
+}

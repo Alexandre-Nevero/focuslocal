@@ -1,13 +1,14 @@
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {app, session} from "electron";
-import {registerIpc, recoverUnfinishedSession} from "./ipc.ts";
+import {registerIpc, recoverUnfinishedSession, endSessionFromExtension, startSessionFromExtension, watchExternalStoreChanges} from "./ipc.ts";
 import {ledgerDir} from "./paths.ts";
-import {createAssistantWindow, createTray, destroyAssistantWindow, openMain} from "./windows.ts";
+import {createAssistantWindow, createTray, destroyAssistantWindow, openMain, ROUTE_PATTERN} from "./windows.ts";
 import {startRuntime, stopRuntime} from "./ai/runtime.ts";
 import {discardJudgments, enqueueUnjudged} from "./harness/queue.ts";
 import {stopCapture} from "./capture/poller.ts";
 import {closeDb} from "./store/db.ts";
+import type {Route} from "../src/shared/types.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -43,15 +44,43 @@ function blockNetwork() {
     });
 }
 
+function openExtensionRequest(argv: string[], fallback: Route = "idle") {
+    const startInput = argv.find((arg) => arg.startsWith("--ledger-start="))?.slice("--ledger-start=".length);
+    if (startInput != null) {
+        try {
+            if (startInput.length > 60000)
+                throw new Error("Start input is too long");
+            startSessionFromExtension(JSON.parse(Buffer.from(startInput, "base64url").toString("utf8")));
+            openMain("running");
+        } catch {
+            console.error("Twofold could not start the session from the extension");
+            openMain("declare");
+        }
+        return;
+    }
+    if (argv.includes("--ledger-action=end")) {
+        try {
+            const ended = endSessionFromExtension();
+            if (ended != null)
+                return;
+        } catch {
+            console.error("Twofold could not end the session from the extension");
+        }
+    }
+    const requested = argv.find((arg) => arg.startsWith("--ledger-route="))?.slice("--ledger-route=".length);
+    openMain(requested != null && ROUTE_PATTERN.test(requested) ? requested as Route : fallback);
+}
+
 if (!app.requestSingleInstanceLock())
     app.quit();
 else {
-    app.on("second-instance", () => openMain("idle"));
+    app.on("second-instance", (_event, argv) => openExtensionRequest(argv));
 
     // Ledger lives in the tray: closing every window does not quit it. Quit is in the tray's right-click menu.
     app.on("window-all-closed", () => {});
     let stopping = false;
     let stopped = false;
+    let stopStoreWatch: (() => void) | undefined;
     app.on("will-quit", (event) => {
         if (stopped)
             return;
@@ -59,6 +88,7 @@ else {
         if (stopping)
             return;
         stopping = true;
+        stopStoreWatch?.();
         destroyAssistantWindow();
         stopCapture();
         discardJudgments();
@@ -73,11 +103,12 @@ else {
     void app.whenReady().then(() => {
         blockNetwork();
         registerIpc();
+        stopStoreWatch = watchExternalStoreChanges();
         createTray();
         const recovered = recoverUnfinishedSession();
         enqueueUnjudged();
         createAssistantWindow();
-        openMain(recovered != null ? `review/${recovered}` : "idle");
+        openExtensionRequest(process.argv, recovered != null ? `review/${recovered}` : "idle");
         // After the windows show, so Start never waits on the model (US-001).
         void startRuntime();
     });

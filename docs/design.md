@@ -12,7 +12,7 @@ implementation_status: specification only; not a claim that these screens or rou
 
 # Design — Twofold
 
-> **Design decision:** The warm-cream dashboard image selected by Alexandre on 2026-10-10 is the **visual target** for Twofold. The product remains the offline desktop session review specified in [`prd.md`](prd.md). [ADR-012](adr/ADR-012-meant-loop-on-device.md) adopts MEANT's loop: the start popup, the blocker, the cycle, saved lists, presets, and a day timeline beside the month of rows. It does not adopt MEANT's account, its donut, or its fidelity percentage. Those fight F-012 and BR-006.
+> **Design decision:** The warm-cream dashboard image selected by Alexandre on 2026-10-10 is the **visual target** for Twofold. The product remains the offline desktop session review specified in [`prd.md`](prd.md). [ADR-012](adr/ADR-012-meant-loop-on-device.md) adopts MEANT's loop: the start popup, the blocker, the cycle, saved lists, presets, and a day timeline beside the month of rows. The lower **Attention breakdown** card uses the visual form specified in [ADR-021](adr/ADR-021-attention-breakdown-card.md), with factual durations only.
 >
 > **Scope boundary:** The selected image approves visual direction, composition, brand treatment, and the dashboard's information hierarchy as a design exploration. It **does not silently override** the PRD's accepted rules, invent backend data, authorize cloud functionality, or prove that the UI exists. Conflicts are explicitly tracked in §2 and §15.
 
@@ -43,7 +43,7 @@ Preserve the **visual grammar**: cream-on-cream panels, slight inset card shadin
 The image is not a tested specification of formulas, data, navigation, or privacy claims. It contains example sessions and visual choices that need product resolution:
 
 - The top monthly graph uses an hours axis and a focus-colored bar. Its position and chart design are selected; a productivity/attention metric is **not** approved by the PRD.
-- The last card is a proportional ring labeled **Attention breakdown**, although [`prd.md` BR-006](prd.md) excludes rates and scores. The card's **place in the grid** is selected. Live percentage/progress semantics are **blocked pending a product decision**.
+- The lower-right **Attention breakdown** card uses a terracotta double donut, a center total for captured attention duration, and a legend with the existing categories and their absolute durations. Do not show percentages, progress, comparisons, or inferred break time; see [ADR-021](adr/ADR-021-attention-breakdown-card.md).
 - The screenshot labels session duration **Focus** and uses color to imply its meaning. Window time is not the same thing as intention-serving time.
 - **Patterns**, **Field Notes**, the search glyph, and the **A** avatar-shaped control have no matching shipped route, search API, notes feature, or account requirement. Their shapes are references, not permission to add those features.
 - The monthly plot depicts multiple active days while one part of the example claims a small month total. Its sample numbers are internally inconsistent. Implement every figure from one source of session data, never from the drawing.
@@ -54,7 +54,7 @@ The image is not a tested specification of formulas, data, navigation, or privac
 |---|---|---|
 | Awareness beats accountability. | Lead with intention against the observed windows; the finish answer is secondary, after the record. No praise or scolding. | [ADR-008](adr/ADR-008-awareness-over-accountability.md), PRD BR-002/BR-007 |
 | A running session stays quiet. | Running, mini window, extension status, and widgets show **intention + clock**, without live labels, warning colors, predictions, or a progress gauge. | [ADR-001](adr/ADR-001-silent-review.md), PRD BR-001 |
-| Never invent window observations. | Show **Away**, **Unclear**, and **Not recorded** distinctly. Empty data is blank, not a complete bar. | PRD US-002/US-003/US-010 |
+| Never invent window observations. | Show **Away** and **Not recorded** distinctly; captured attention receives automatic Served or Drift. Empty data is blank, not a complete bar. | PRD US-002/US-003/US-010 |
 | No rates, scores, streaks, or hours headline. | Avoid focus score, productivity rate, finish %, comparisons, arrows implying improvement, and proportional rings treated as a success metric. | PRD F-013/BR-006/US-007 |
 | Label source is inspectable. | Every Review visit exposes whether a rule, memory, user, or on-device model supplied the current label. | PRD US-003/US-004/US-005; [ADR-002](adr/ADR-002-harness-order.md) |
 | A tap does not instantly train memory. | Only show a remembered source when it actually comes from memory after repeated user taps. | PRD BR-004 |
@@ -180,7 +180,7 @@ Avoid low-contrast tiny grey text. Set `font-variant-numeric: tabular-nums` on n
 
 ### 4.1 Present implementation vs selected design
 
-The **current** renderer (`src/App.tsx`) contains route headings only. `electron/windows.ts` allows `idle`, `declare`, `permissions`, `running`, `review/:id`, `history`, `privacy`, and `mini`. The route type in `src/shared/types.ts` matches this set. `window.ledger` exposes `session`, `review`, `history.list`, `privacy`, `permissions`, `widgets`, and `windows` operations. **There is no `dashboard`, `day`, `patterns`, `notes`, or search API.**
+The **current** renderer (`src/App.tsx`) contains route headings only. The specified `CoachDrawer` is overlay state on the Dashboard, not a separate full-page route. `electron/windows.ts` allows `idle`, `declare`, `permissions`, `running`, `review/:id`, `history`, `privacy`, and `mini`. The route type in `src/shared/types.ts` matches this set. `window.ledger` exposes `session`, `review`, `history.list`, `privacy`, `permissions`, `widgets`, and `windows` operations. **There is no `dashboard`, `day`, `patterns`, `notes`, or search API.**
 
 | Visual surface | Screen purpose | Route status / wiring | Auth |
 |---|---|---|---|
@@ -196,16 +196,20 @@ The **current** renderer (`src/App.tsx`) contains route headings only. `electron
 | History | Past-session access; canonical PRD `US-007` | Existing `app://history`, may be dashboard backing screen | Local, no account |
 | Privacy | Local model/source/file facts and delete actions | Existing `app://privacy` | Local, no account |
 | Mini | Intention and clock only | Existing `app://mini` | Local, no account |
-| Companion | The coach's character. Drag, hover, tap opens the popup (US-012) | **SPECIFIED, not built.** New window, not a route inside the main window. See [ADR-011](adr/ADR-011-coach-companion-and-system-one.md). | Local, no account |
-| Coach | One ended session, from computed figures (US-011). A suggestion needs a button. | **SPECIFIED, not built.** Opens from the companion when idle, and from the review. | Local, no account |
+| Companion | The coach's character. Drag and hover; tap opens Coach when the Dashboard or Windows desktop is foreground, and session controls for every other foreground app or view (US-012) | **SPECIFIED, not built.** The pet stays collapsed in its separate always-on-top window. When Dashboard or the Windows desktop (`Program Manager`) is foreground, tap opens Coach for the latest ended session. In every other app or Twofold view, tap opens the existing Idle/Running session popover at 320×420 near the pet, including controls and local log; blur dismisses it. See [ADR-022](adr/ADR-022-companion-destination-follows-foreground.md). | Local, no account |
+| Coach | Explicit chat about the latest ended session, using computed figures, allowed local-history counts, and a bounded saved conversation (US-011). | **SPECIFIED, not built.** A full-height right drawer over the dimmed, blurred, inert Dashboard; entered from Dashboard, Review, or companion, with Ask Judge to open the latest Review. See [ADR-024](adr/ADR-024-coach-drawer-over-dashboard.md). | Local, no account |
 | Declare popup | Intention, cycle, where it happens, what to block, Start (US-001, US-014, US-016) | Existing `app://declare`. The fields in [ADR-012](adr/ADR-012-meant-loop-on-device.md) are specified, not all built. | Local, no account |
 | Sites | Saved work list and block list (US-015) | **SPECIFIED, not built.** | Local, no account |
 | Block window | Intention and "That's still true." No duration. | **SPECIFIED, not built.** | Local, no account |
 | Day | One day's sessions on the review trace (US-007) | **SPECIFIED, not built.** Not a score dashboard. | Local, no account |
 | macOS desktop widget | Read-only intention and clock | PRD planned, not a current renderer route | Local, no account |
-| Browser extension popup | Read-only intention and clock | PRD planned, not a current renderer route | Local, no account |
+| Browser extension popup | Start with intention and targets; edit an active/ended intention; latest ended summary, label corrections, and editable finish answer | MV3 popup uses the local native host for session actions and desktop launch routes. See [ADR-019](adr/ADR-019-extension-session-parity.md). | Local, no account |
 
 **Navigation rule:** The selected screenshot's four labels are the **visual target**, but an initial compliant release must only expose working destinations. Use `Dashboard · Ledger` when each has a real destination; show `Patterns` and `Field Notes` only as clearly disabled/coming-later concepts in a prototype, or omit them from the real navigation. Keep spacing so adding them later does not require changing the identity system. Keep access to `Privacy` through the status pill/right control even if `Settings` is not in the primary nav.
+
+**Idle popover completeness:** The idle surface is a functional session launcher, not a decorative disconnected mock. In the warm-paper visual system, show whether a session is active, an available Start action, and working History and Privacy actions. Empty history is explicitly empty and network state is accurately labeled **Network blocked**. If a required local capability is unavailable, name that state and provide the supported recovery action; do not imply connection to a server or fill the screen with sample values. Keep controls operable and labeled, including icon-only actions.
+
+**Browser extension popup:** Apply the warm-paper, terracotta, and serif visual language at the popup's compact width. At rest during a running session, show the exact intention and elapsed clock, following BR-001; an explicit Edit action opens an intention field with Save and Cancel. Save updates the same session row, including when the saved text is empty. Starting from idle accepts the same intention and targets as the desktop and uses its canonical start behavior. With no active session, show the latest ended session's actual local summary, explicit Away and Not recorded intervals, and its finish answer. The intention and answer remain editable; answer choices are equal-weight Yes / Not yet controls with the option to clear back to unanswered. Label taps use the same correction path as Review. A small neutral icon may accompany each visible answer label; neither icon nor color signals a better outcome. Provide working Declare, Running, History, Review, and Privacy routes. Desktop views reload local state within one second after an extension write. If the native host is unavailable, state that and offer Open Twofold as recovery. Do not display a blocked-attempt count until the local capture and summary contract contains actual hit records. Intent edits preserve visits, verdicts, user corrections, and outcomes; they do not trigger model judgment or memory updates. Any unresolved display fallback uses the saved intention.
 
 **Naming conflict:** The earlier Survey handoff proposed `Today · History · Settings` and disallowed the word “ledger.” The **newer chosen screenshot explicitly selects** `Dashboard · Ledger · Patterns · Field Notes`. For this new design, “Ledger” is only a name for a chronological daily record, not an account book. Do not introduce debit/credit, billing, accounting metaphors, or “time spent well” language. Product owner should ratify this UI-name exception alongside the route decision.
 
@@ -235,7 +239,7 @@ Keep this order and card relationships:
 │ ┌──────────── YOUR INTENTION, LAID OVER THE SESSION ───────────────────────────────────┐ │
 │ │ thin continuous overprint with circular registration ends                         │ │
 │ │ segmented observed-state strip  | solid | hatch | dotted | gap |                   │ │
-│ │ legend: intention · served · drifted · unclear · away · not recorded                │ │
+│ │ legend: intention · served · drift · away · not recorded                │ │
 │ └────────────────────────────────────────────────────────────────────────────────────┘ │
 │ ┌────────────────────────── DAILY LEDGER / SELECTED DAY ───────────────────────────────┐ │
 │ │ time-of-day ruler        [one or more session spans]                                │ │
@@ -267,6 +271,10 @@ At widths **1440 px and above**, use a centered content max-width around 1500–
 
 **Alternate screenshot-exact metric (BLOCKED):** hours-axis attended-time bars, 23m total, focus-colored bars and their proportional encoding. These require explicit product sign-off if they become a time/focus headline or rate. An approved design screenshot alone cannot change F-013/BR-006. Never claim this alternate is already in scope.
 
+### 5.3.1 Attention breakdown card
+
+Use a compact **ATTENTION BREAKDOWN** uppercase heading with the selected **DAY**, **WEEK**, or **MONTH** at the right. The visual is a terracotta double donut with captured attention duration centered inside. The outer ring partitions session duration into Attention, Away, and Not recorded, with an absolute-duration legend below. The inner ring partitions recorded attention into Served, Drifted, Unclear, and Labelling; list the nonzero inner durations in the explanatory note and expose them to screen readers. The center total is the duration of recorded attention visits, whatever their label. Category durations use local session records. The rings are a duration composition, not a score: show no percentages, progress, trend comparisons, or inferred break time. Loading records show a status skeleton; an empty period shows neutral tracks and zero durations.
+
 **Period semantics:** Day = one chosen calendar day (session count/visits scoped to it); Week = seven local calendar days; Month = the chosen local calendar month. Date boundaries use the device's local timezone consistently and actual stored timestamps. All panels that depend on date must use the same range. If a duration crosses midnight, define the allocation policy in the product/data owner before building graphs that split it. Do not silently count the same session twice.
 
 ### 5.4 Intention-over-session overlay: signature component
@@ -285,14 +293,13 @@ This card is the brand's most distinctive UI element and remains on the Dashboar
 | Your intention | Continuous accented thin line + two registration marks | The declared sentence spans the session. This line is **not a verdict**. |
 | Served the intention (`serves`) | Solid **ink** segment | Label is `serves` after the display gate; per-visit source shown in Review. |
 | Drifted (`drifts`) | 45° diagonal ink hatch, ≥5 px repeat | Label is `drifts`; this means “not this intention,” not “bad behavior.” |
-| Unclear (`unclear`) | Empty/outlined or dotted texture with `?` if room permits | User may clarify; never silently assign to Served. |
-| Labelling… | Outline without final fill | Verdict pending; UI must update from `verdict:updated`. |
+| Raw unclear (`unclear`) | Render the local fallback as Served or Drift | Internal compatibility state, not a classification interaction ([ADR-017](adr/ADR-017-binary-review-label-correction.md)). |
 | Away (`kind='away'`) | Dashed baseline / visibly empty track | OS-idle/lock observation, **not** a window classification. |
 | Not recorded (`unrecordedMs` or gaps) | **Actual blank gap** and text in tooltip/list | The app cannot say what was open. Do not convert to Away or Unclear. |
 
 Use **text plus pattern**, not hue alone. The reference's warm-filled status segments are a visual starting point, but coloring Served/Drifted like the human intention would merge the two layers. The warm overprint line is the only continuous Coral element in this component. Each overlay shows exactly **one selected session**; do not combine all visits from different sessions into a false continuous story.
 
-**When no session is selected:** show an empty component with the instruction `Select a session to see its windows.` (proposed copy) or an equivalent factual prompt. Do **not** render a decorative example trace as if real. When the selected session has no intention, name that fact and omit the implication that the upper band contains a declared plan. When all visits are unclassified, outline the segments and explain the state.
+**When no session is selected:** show an empty component with the instruction `Select a session to see its windows.` (proposed copy) or an equivalent factual prompt. Do **not** render a decorative example trace as if real. When the selected session has no intention, name that fact and omit the implication that the upper band contains a declared plan. When no attention visits were captured, show the actual empty trace and explain that no windows were recorded.
 
 **Interactions:** choosing a day in the top card can select its most recent ended session **only if** that default is explicitly labeled (avoid unexplained auto-selection). Keyboard selection of each segment must reveal the same data as hover. The session strip has one accessible description and a linked list/table of visits so screen-reader and keyboard users can inspect each interval without dozens of forced tab stops. Tooltips give time, app, title if present, label, and source where available. Gaps have explicit provenance.
 
@@ -314,7 +321,7 @@ Keep the **wide daily timeline card**, inset rounded track, 04:00–22:00-style 
 
 **Circular bottom-right card.** Preserve its **size, position, title hierarchy, and quiet circular motif**, but resolve its semantics before implementation:
 
-- **PRD-compliant default:** rename to **Window labels**. Use a **non-data-encoded contour illustration** derived from the logo, next to a factual list of absolute durations/counts by label (`Served`, `Drifted`, `Unclear`, `Away`, `Not recorded`) where derivable from actual rows. Do not vary ring length, arc size, or hue according to performance or proportion. Treat the contours as illustration with `aria-hidden`.
+- **PRD-compliant default:** rename to **Window labels**. Use a **non-data-encoded contour illustration** derived from the logo, next to a factual list of absolute durations/counts by label (`Served`, `Drift`, `Away`, `Not recorded`) where derivable from actual rows. Do not vary ring length, arc size, or hue according to performance or proportion. Treat the contours as illustration with `aria-hidden`.
 - **Screenshot-exact donut:** `Attention breakdown` with a 23m center and proportional ring segments is **BLOCKED** until the PRD explicitly permits that representation. It is visually a rate/part-of-whole encoding even if `%` is not printed. If accepted later, separately define denominator, labels, gaps, scope (selected session vs whole month), and accessibility before coding.
 
 The above compromise keeps the reference card's visual footprint without quietly violating the product contract. If a strict pixel-match is required, stop at a **static marked mock** for this one card and request a product rule change rather than inventing a runtime statistic.
@@ -337,21 +344,25 @@ The Dashboard looks like the chosen screenshot, but the Review is the app's **fi
 
 ### 7.1 Information order
 
-1. **YOU MEANT TO** and the exact intention sentence (or `No intention was written for this session.`).
+1. **YOU MEANT TO**, the exact intention sentence (or `No intention was written for this session.`), and an Edit action with Save / Cancel.
 2. **Window switches** count, only if its counting definition is confirmed. State the recorded scope; unrecorded time is not counted.
 3. **Detours** if defined or **drifted windows** with truthful per-visit labels; include uncertainty rather than implying all drifted time is known.
 4. **Intention-over-session strip** (same component as Dashboard but here it belongs to the single ended session).
-5. **Windows you used**, in chronological rows with app, window title or URL, start time, duration, verdict, and **source** (`your list`, `remembered`, `on-device model`, `you marked it`). Show `Unclear. You decide.` with `Served` and `Drifted` actions. State `Away` and `Not recorded` explicitly.
+5. **Windows you used**, in chronological rows with app, window title or URL, start time, duration, verdict, and **source** (`your list`, `remembered`, `on-device model`, `you marked it`). The existing label card is a button showing `Served` or `Drift`; click it to switch labels. Its accessible name describes the switch, and Enter/Space do the same. There are no extra classification buttons. State `Away` and `Not recorded` explicitly.
 6. **Did you finish?** `Yes` / `Not yet` with equal button weight; `Skip for now`. On saved answer, use a neutral confirmation and `Change`, nothing evaluative.
 7. Privacy footer with model ID/status, model-call count when available, saved local file details, and **Privacy details** action.
 
 **Critical placement:** The finish answer stays below the evidence, never above the visit list or inside the Dashboard ring. Closing Review without answering results in `unanswered`; a reopen does not fabricate Yes/Not yet.
 
+Editing the intention from Running or Review updates that session's existing row. Save persists, Cancel restores the last saved value, and empty text is valid. Review reloads the local record after the save; it does not create another session or rerun model judgment.
+
+For the current-session breakdown, show the literal intention under **YOU MEANT TO**, then the session's actual recorded hosts/windows and elapsed minutes, with **Away** and **Not recorded** kept distinct. List blocked attempts as reaches without assigning them host duration. Use the paper-and-terracotta palette and serif section headings from the selected reference. The finish choices remain below this evidence; no icons or color may imply that Yes is a better result.
+
 ### 7.2 Label and loading rules
 
-- A rule match has source `rule`; a repeated-tap match has source `memory`; a low-confidence model result remains **shown as unclear** after the display gate, even if a raw model label exists. Use `shown` from `ReviewVisit`, not the raw `verdict.label`, for user-facing labeling.
-- Show pending judgments as `Labelling…` (review only, never live in Running). Local model missing/error yields honest Unclear and status; it does **not** block session recording.
-- Clicking `Served` or `Drifted` on an unclear row calls `review.tap(id, label)`, updates source to user, and refreshes the displayed row and pattern. A second click on a later visit may affect memory only through the actual harness rules.
+- Use computed `ReviewVisit.shown` and `shownSource` for user-facing labeling. A saved user correction wins; an accepted binary judgment is next. Raw unclear, gated, or pending verdicts receive the local if/else fallback: work-target or intention-token evidence gives Served; otherwise Drift. The fallback has shown source `rule`; raw verdict and model metadata stay unchanged.
+- Pending judgments and a missing/erroring model use the binary display fallback. Loading the local record remains a loading state. Session recording never waits.
+- Clicking the existing Served/Drift label card calls `review.tap(id, oppositeLabel)`, persists source `user`, and refreshes the row and pattern. A saved correction wins over later automatic results. Memory still requires existing distinct-visit support.
 - No source may be inferred from app logo or color. Tooltip and row text must state source when a verdict exists.
 - Do not show `0` switches or `0` detours for completely unrecorded sessions as if this means the user stayed focused. Include the **Not recorded** gap.
 
@@ -362,14 +373,22 @@ The Dashboard looks like the chosen screenshot, but the Review is the app's **fi
 | **Permissions** (`app://permissions`) | Human explanation of which OS permission enables frontmost window/title capture; current state and failure result. | Buttons to open prompt/retry. Denied state must not make up visit data. |
 | **Idle tray popover** (`app://idle`, 320×420) | Mark, twofold name, one-line intention field entry, Start, History/Dashboard, Privacy. | No account, ads, coach, or live judgment. Popover layout works near bottom/right taskbar. |
 | **Declare** (`app://declare`) | Intention input, work list, distraction list, Start. | Blank intention **may start**. Lists match current `DeclaredTarget` role: `work` or `distraction`. |
-| **Running** (`app://running`) | Intention read-only, clock, End session. If capture failed, a factual capture-status message. | **No live verdicts, charts, drift signals, warnings, praise, or motivational quote** (BR-001). Start did not wait for model. |
+| **Running** (`app://running`) | Intention with explicit Edit / Save / Cancel, clock, End session. If capture failed, a factual capture-status message. | At rest, show intention and clock only. The edit interaction has no live verdicts, charts, drift signals, warnings, praise, or motivational copy (BR-001). |
 | **Mini** (`app://mini`, 280×72) | One truncated intention line and elapsed clock with End action where supported. | 280×72 means no paragraph, nav, or graph. Independent of monitor position. |
 | **Privacy** (`app://privacy`) | Local model identifier/status, model-source verdict count, eval run/not-run status, local DB path, memory deletion, file deletion. | Confirm destructive actions. State that the UI does **not** independently inspect packet traffic. `Delete failed, file still present` must be explicit. |
-| **macOS widget / browser extension popup** | Read-only intention and elapsed clock. | These are planned in the PRD; not evidence that they already ship. Keep BR-001. |
+| **macOS widget** | Read-only intention and elapsed clock. | Keep BR-001. |
+| **Browser extension popup** | Idle start; active intention and clock with explicit intention edit; latest ended record with editable intention, label corrections, and finish answer; History, Review, and Privacy routes. | Follow BR-001 at rest while running; see ADR-019 for same-record updates and native-host actions. |
 
 **Privacy copy:** use `Network blocked` where the Electron runtime actually enforces the network block. The current build blocks non-local requests in its packaged renderer but allows the dev server during development. Model download on `npm install` is an internet-dependent setup step. Never claim the entire installation works without any network access. Keep model-call evidence factual.
 
+**Coach drawer:** Coach is an application overlay attached to the Dashboard, not a separate full-page route. It occupies the full window height on the right. Keep the Dashboard visible behind a dim and blur treatment, and make the background inert until Coach closes. Build the drawer with current `--tf-*` tokens: cream surface, ink text, existing control edges, and restrained coral/tan accents; do not invent a second palette.
+
+The header holds the mascot, **Twofold Coach**, a local-record indicator, **Ask Judge** to open Review for the latest ended session, and a close button. Below it, show **Working on** with the saved intention. Render the saved conversation as ordered message bubbles. Suggested-question chips sit above the composer and only copy their text into the draft. The composer has an explicit **Send** button; only submission starts generation. Preserve the typed message during model loading or unavailable errors and show the actual state. Keep the bounded exchange policy and ADR-014 numeric/action validation. With no ended session, show an empty state and omit session-specific elements.
+
+The close button, Escape, and backdrop click dismiss the drawer and return to Dashboard without sending. Return focus to the opening control when available. The drawer does not expose a Coach entry or prompt during a running session or in the session popover.
 **Delete copy:** say what is deleted. The app currently stores local data under `%APPDATA%\Ledger\ledger.db` on Windows. Rename/migrate only after the architecture owner defines migration and fallback behavior. Show the actual `dbPath` returned by `privacy.get()` instead of hardcoding any brand path in UI.
+
+**Coach recovery (ADR-025):** History loading and failure do not disable draft editing. Failed history offers Retry and preserves the draft. The floating companion is hidden while Coach occupies the main window so it cannot cover the composer or Send control; leaving Coach restores it.
 
 ## 9. Component inventory and variants
 
@@ -380,15 +399,16 @@ The Dashboard looks like the chosen screenshot, but the Review is the app's **fi
 | `PeriodPicker` | Selected day/week/month | Dashboard, Ledger | idle, previous, next, today, keyboard active |
 | `InsetPanel` | Title + body | Dashboard, Ledger | normal, empty, loading, failure |
 | `MonthlyBreakdown` | Actual ended session counts for period | Dashboard | empty, one day, multi-day, tooltip, keyboard focus |
-| `SessionOverlay` | One ended session + ordered review visits + unrecorded gaps | Dashboard, Review, list mini version | served, drifted, unclear, labelling, away, not recorded |
+| `SessionOverlay` | One ended session + ordered review visits + unrecorded gaps | Dashboard, Review, list mini version | served, drifted, away, not recorded, empty |
 | `DailyTimeline` | Ended session time spans | Dashboard, Ledger | empty, partial day, cross-day, overlap policy needed |
 | `SessionRow` | `HistoryRow` + optionally related visits | Dashboard, Ledger, History | answered, unanswered, no intention, pending summary |
-| `VisitRow` | `ReviewVisit` (`shown`, `verdict.source`) | Review | served, drifted, unclear, user-corrected, pending, away |
+| `VisitRow` | `ReviewVisit` (`shown`, `shownSource`) | Review | served, drifted, user-corrected, away |
 | `DetourList` (provisional) | Visit sequence after algorithm accepted | Dashboard, Review | unavailable definition, none, partial, resolved |
 | `WindowLabelsCard` | Absolute labels/durations, static contour illustration | Dashboard | empty, some data, incomplete capture |
 | `OutcomePair` | Current session `outcome` | Review | unanswered, yes, not yet, saved, changed |
 | `ListEditor` | Declared work/distraction targets | Declare | empty, list, invalid target, saved |
-| `StatusPill` | Network/runtime facts | Shell, Review, Privacy | factual, not-scorable; errors textual |
+| `StatusPill` | Network/runtime facts | Shell, Review, Privacy, Coach drawer | factual, not-scorable; errors textual |
+| `CoachDrawer` | Latest ended session, saved exchanges, local model state | Dashboard overlay | empty, ready, loading, unavailable, replying, dismissing |
 | `PrivacyFacts` | `privacy.get()` | Privacy | loading, loaded, model missing, run not yet made |
 | `ConfirmStep` | Chosen destructive action | Privacy | idle, asking, executing, failed, done |
 | `Clock` | Started-at and current OS time | Running, mini, extensions | running, ended, unavailable |
@@ -410,7 +430,7 @@ The Dashboard looks like the chosen screenshot, but the Review is the app's **fi
 - **Recorded window time:** the union/sum of valid recorded attention visit intervals **after deduplicating overlaps**; `kind='attention'` does not mean `serves`. This number is not a productivity score.
 - **Away:** intervals explicitly stored as `kind='away'`; away is not an assumed remainder.
 - **Not recorded:** the gap that `review.get` reports (and which should equal valid session wall time minus covered time, with non-overlap handled upstream). Never silently classify the gap.
-- **Served / Drifted / Unclear duration:** only from attention visits and the **shown** review label, not `verdict.label` bypassing the display gate. Unclassified visits stay Unclear or pending.
+- **Served / Drift duration:** only from attention visits and computed `shown`, including saved corrections and the deterministic fallback. Raw unclear/pending states are not a third review category.
 - **Outcome:** independent person-provided answer `yes`, `not_yet`, `unanswered`. It is not a verdict source and never changes the prior window labels.
 - **Window switches:** **definition awaiting PRD acceptance.** Candidate: count transitions from one identifiable attention window to another, excluding the first window, away intervals, capture gaps, and repeated polls of an unchanged window. The app currently groups visits by active window key, not an explicit persisted `switch` event. Do not put an agreed-looking count in production until the owner confirms boundary rules.
 - **Detours:** **definition awaiting PRD acceptance.** Do not pretend that simply counting every `drifts` visit equals a detour if unclear and away segments interrupt it.
@@ -424,10 +444,10 @@ The Dashboard looks like the chosen screenshot, but the Review is the app's **fi
 |---|---|---|---|---|
 | Dashboard | `No sessions yet.` and Start a session link | Skeleton card heights and *no* fake bars | Local read error, retry/open Privacy; no synthetic chart | Actual period, chart, overlay if selected, lists |
 | Monthly breakdown | One factual blank plot or empty caption; no sample columns | Stable panel footprint | Explain history read failure | One bar per actual day with data, keyboard tooltip |
-| Overlay | Select a session or no visits; honest unknowns | Outline/`Labelling…` | Error text + known capture gaps | Patterned segments + continuous intention line |
+| Overlay | Select a session or no recorded visits | Reading the local record | Error text + known capture gaps | Patterned segments + continuous intention line |
 | Daily timeline | No sessions for date | Neutral track, no guessed session | “Could not load sessions.” | Clock-positioned ended sessions |
 | Detour card | No derived detours; show raw labeled rows if needed | No counts until data available | Explain unavailable calculation | Derived entries only after algorithm is approved |
-| Review | No intention or visits can occur | `Reading the local file`; pending labels remain outlined | Error; do not auto-mark finish | Rows, sources, correction controls, optional answer |
+| Review | No intention or visits can occur | `Reading the local file` | Error; do not auto-mark finish | Rows with binary Served/Drift labels, sources, correction controls, optional answer |
 | Privacy | Facts may state `none configured` | Local spinner/text, not a network loader | Explicit local read/delete failure | Actual path, model status, counts, confirmations |
 | Declare | Empty intention allowed; targets may be empty | Start never waits for local model | Permissions error with recovery path | Session starts and Running opens |
 
@@ -496,8 +516,8 @@ Session Review remains a different dedicated layout. The main Dashboard must not
 ### Behavior and trust checks
 
 - [ ] Can start with empty intention and with missing model; Running stays silent.
-- [ ] Review always renders intention + observed windows + source, including gaps/unclear/pending.
-- [ ] Tap changes `shown` label to the user's choice and source `user` without claiming immediate memory.
+- [ ] Review renders intention + observed windows + inspectable source, with binary attention labels and explicit away/capture gaps.
+- [ ] Clicking the existing label card switches Served/Drift, persists source `user`, survives reopening, and does not claim immediate memory.
 - [ ] Closing Review unanswered remains unanswered; Yes/Not yet do not produce praise.
 - [ ] No sample values ship as real analytics; every summary agrees with the underlying visit/session rows.
 - [ ] No chart displays an unapproved rate, streak, or focus score.
@@ -513,7 +533,6 @@ These are explicit **product/technical decision gates**. They are not automatica
 | ID | Decision | Conservative behavior now | Owner to approve |
 |---|---|---|---|
 | D-01 | Are runtime attended-time bars, hour ticks and totals permitted despite BR-006/F-013? | Use session counts in the same monthly chart silhouette. | Product / PRD owner |
-| D-02 | Can the `Attention breakdown` donut show proportional time? What denominator? | Keep lower-right card but show static two-contour emblem and absolute label list. | Product / PRD owner |
 | D-03 | Should `Dashboard · Ledger` become separate destinations, or one combined overview + day drill-down? | Put chosen dashboard at `history` initially; add route only after approved mapping. | Product + system-design owner |
 | D-04 | What are `Patterns` and `Field Notes` exactly? | Omit from live app / show disabled in design-only prototype; no invented AI journaling. | Product owner |
 | D-05 | What is a switch, detour, and partial unclear detour? | Show individual visits and labels, without fabricated aggregate. | Product owner, capture/system owner |
@@ -547,6 +566,8 @@ These are explicit **product/technical decision gates**. They are not automatica
 - [ADR-002: harness order](adr/ADR-002-harness-order.md)
 - [ADR-007: Windows first](adr/ADR-007-windows-first.md)
 - [ADR-008: awareness over accountability](adr/ADR-008-awareness-over-accountability.md)
+- [ADR-023: explicit local Coach chat](adr/ADR-023-explicit-local-coach-chat.md)
+- [ADR-024: Coach drawer over Dashboard](adr/ADR-024-coach-drawer-over-dashboard.md)
 - [Source brief](../idea.md)
 
 **External visual/layout reference:** the **user-selected Twofold warm-cream dashboard image** attached to the design request on 2026-10-10. **Do not claim that this image is checked into the repository.**
