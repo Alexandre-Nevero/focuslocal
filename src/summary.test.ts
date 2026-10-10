@@ -14,7 +14,7 @@ function visit(id: string, from: number, to: number, shown: Label | null, app: s
 }
 
 const review: Review = {
-    session: {id: "s", intention: "Acme deck draft", startedAt: at(0), endedAt: at(30), outcome: null, targets: []},
+    session: {id: "s", intention: "Acme deck draft", analyzedIntent: null, startedAt: at(0), endedAt: at(30), outcome: null, targets: []},
     visits: [
         visit("a", 0, 12, "serves", "Keynote"),
         visit("b", 12, 18, "drifts", "Chrome", "https://www.youtube.com/watch?v=1"),

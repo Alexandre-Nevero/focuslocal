@@ -15,11 +15,13 @@ export type PeriodMode = "day" | "week" | "month";
 export type Route =
     | "idle" | "declare" | "permissions" | "running" | `review/${string}` | "history" | "privacy" | "mini"
     | "dashboard" | `dashboard/${PeriodMode}/${string}`
-    | "ledger" | `ledger/${string}`;
+    | "ledger" | `ledger/${string}`
+    | "companion" | "sites" | "block";
 
 export type Session = {
     id: string,
     intention: string,
+    analyzedIntent: string | null,
     startedAt: string,
     endedAt: string | null,
     outcome: Outcome | null,
@@ -59,7 +61,7 @@ export type Verdict = {
 /** A visit as the review renders it. `verdict` is null while Harness is still judging ("Judging…"). */
 export type ReviewVisit = Visit & {
     verdict: Verdict | null,
-    /** The label after the display gate: a model label below tau (or with no tau) shows as unclear. */
+    /** The stored verdict label, or null while judging. */
     shown: Label | null
 };
 
@@ -108,9 +110,15 @@ export type LedgerEvents = {
 };
 
 /** `window.ledger`, exposed by electron/preload.ts. Every call rejects with an Error on failure; render that, never fake data. */
+export type CoachActionWire = {type: string, target?: string, sessionId?: string};
+
 export type LedgerApi = {
     session: {
-        start(input: {intention: string, targets: DeclaredTarget[]}): Promise<Session>,
+        start(input: {
+            intention: string,
+            targets: DeclaredTarget[],
+            cycle?: {workMin: number, breakMin: number, count: number} | null
+        }): Promise<Session>,
         end(): Promise<{sessionId: string}>,
         current(): Promise<Session | null>
     },
@@ -137,6 +145,26 @@ export type LedgerApi = {
         /** Shows the main window at a route (the popover and mini window are too small for review, ledger, privacy). */
         open(route: Route): Promise<void>
     },
+    sites: {
+        list(): Promise<{work: string[], block: string[]}>,
+        save(target: string, role: "work" | "block"): Promise<void>,
+        remove(target: string): Promise<void>
+    },
+    settings: {
+        get(): Promise<{judge: boolean, coach: boolean, companion: boolean}>,
+        set(key: "judge" | "coach" | "companion", on: boolean): Promise<void>
+    },
+    companion: {
+        notWork(): Promise<void>,
+        nudge(dx: number, dy: number): Promise<void>,
+        resize(expanded: boolean): Promise<void>
+    },
+    coach: {
+        ask(sessionId: string, text: string): Promise<{reply: string, actions: CoachActionWire[]}>
+    },
+    presets: {
+        fill(intention: string, work: string[]): Promise<string[]>
+    },
     /** Subscribe to a main-process event. Returns the unsubscribe function. */
     on<E extends keyof LedgerEvents>(event: E, listener: (payload: LedgerEvents[E]) => void): () => void
 };
@@ -149,6 +177,11 @@ export const ledgerChannels = [
     "privacy.get", "privacy.dropMemory", "privacy.deleteFile",
     "permissions.get",
     "widgets.toggleMini",
-    "windows.open"
+    "windows.open",
+    "sites.list", "sites.save", "sites.remove",
+    "settings.get", "settings.set",
+    "companion.notWork", "companion.nudge", "companion.resize",
+    "coach.ask",
+    "presets.fill"
 ] as const;
 export type LedgerChannel = typeof ledgerChannels[number];

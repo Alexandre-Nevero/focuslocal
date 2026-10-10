@@ -69,7 +69,7 @@ Story priority is Must or Should. A Won't feature has no story. No story is stri
 **US-001 — Declare and start** *(F-001)* — Priority: Must
 > As a **Worker**, I want to write what I intend to finish and start, so that the session is not waiting on a model.
 
-- Given the popover is open and the capture permission is granted, when I enter an intention and press Start, then a session row exists with that text and a start time, and the running screen is up before any model call.
+- Given the popover is open and the capture permission is granted, when I enter an intention and press Start, then a session row exists with that text and a start time, the typed sentence is stored unchanged, Start does not wait for the reading, and the running screen is up before any model call.
 - Given the intention field is empty, when I press Start, then the session still starts, the intention is stored empty, and the review later shows that nothing could be judged against.
 
 **US-002 — Record attention** *(F-002)* — Priority: Must
@@ -87,6 +87,12 @@ Story priority is Must or Should. A Won't feature has no story. No story is stri
 - Given the visit matches memory, when the visit closes, then the verdict source is memory, and no model call is recorded for it.
 - Given the visit matches neither, when the model returns, then the verdict source is model and the label is serves, drifts, or unclear.
 - Given the model returns anything else, times out, or is not loaded, when the visit is judged, then the label is unclear and the session keeps running.
+- Given a visit closes on a rule or memory hit, when the harness labels it, then Qwen is not called for that visit.
+- Given the one intention reading is accepted and stored, when Decider judges a residual visit, then it receives the reading while `intention` stays the typed sentence.
+- Given the reading is missing, rejected, or failed, when Decider judges a residual visit, then it receives the typed sentence.
+- Given the intention is empty, when the harness would call the model, then Qwen is not called and the model label is unclear.
+
+Decider alone supplies the label; Qwen does not label, vote, explain, or replace it; the model stage may wait for the one reading; rules, memory, Start, and End do not.
 
 **US-004 — Review the block** *(F-004)* — Priority: Must
 > As a **Worker**, I want the intention beside the windows I used, so that I can notice what the block was.
@@ -94,7 +100,10 @@ Story priority is Must or Should. A Won't feature has no story. No story is stri
 - Given a session has ended, when the review opens, then the intention, each visit's app, the away total, and each verdict's label and source are the body of the screen. The finish question is on the screen and is not the headline.
 - Given I answer yes or not yet, when the review closes, then the session stores that outcome, and nothing on the screen praises or scolds it.
 - Given I close the review without answering, when I next open history, then the session's outcome is unanswered.
-- Given the review renders a verdict, when the label is one the review is allowed to assert, then it is only asserted if it meets the bar in [`idea.md` §9](../idea.md). Otherwise the row is shown as unclear.
+- Given the review renders a model verdict, when Decider stored serves or drifts, then that label is shown. A missing bar, or confidence under the bar in [`idea.md` §9](../idea.md), does not replace it with unclear. The review shows Serves or Drifts; the person can correct a label they recognize as wrong.
+- Given a session has ended, when the review opens, then the intention heading shows the exact typed sentence.
+- Given a stored reading is non-empty and differs from the trimmed typed sentence, when the review opens, then it shows **Read as:** with that reading under the heading; when the reading is null or identical, **Read as:** is absent.
+- Given the session is running or I am on the mini window, when those surfaces render, then **Read as:** is not shown.
 
 **US-005 — Resolve an unclear visit** *(F-004, F-005)* — Priority: Must
 > As a **Worker**, I want one tap on a visit I recognize, so that the record uses my word for it.
@@ -284,7 +293,7 @@ flowchart TD
 | Decision branches | Permission gates capture. Unclear visits gate the taps. The outcome can be skipped, which stores unanswered. |
 | Dead ends | None. Permissions returns to launch. Delete in the privacy panel returns to an empty idle popover. |
 | Abandonment / resume | Visits already written stay in the local file if the app quits. Closing the review without an answer stores unanswered. An open visit is closed at the last timestamp the app managed to write. |
-| Edge cases | Empty intention still starts (US-001). Permission denied records a gap (US-002). Model missing yields unclear (US-003). URL unavailable leaves the URL empty and still stores the app and title. |
+| Edge cases | Empty intention still starts (US-001); empty intention does not call Qwen and the model label is unclear (US-003). Permission denied records a gap (US-002). Decider missing yields unclear (US-003). Qwen missing falls back to the typed sentence for judging; `coach.ask` still rejects (US-003, US-011). URL unavailable leaves the URL empty and still stores the app and title. |
 
 ### 5.3 Onboarding Flow
 

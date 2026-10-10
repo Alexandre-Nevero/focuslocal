@@ -35,6 +35,7 @@ export function Idle() {
                     <button type="button" className="link" onClick={() => void ledger.windows.open("dashboard")}>
                         Dashboard{rows.length > 0 ? ` · ${capital(counted(rows.length, "session"))}` : ""}
                     </button>
+                    <button type="button" className="link" onClick={() => void ledger.windows.open("sites")}>Sites</button>
                     <button type="button" className="link" onClick={() => void ledger.windows.open("privacy")}>Settings</button>
                 </nav>
             </div>

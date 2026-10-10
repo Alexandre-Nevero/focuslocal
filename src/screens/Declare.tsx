@@ -23,10 +23,15 @@ export function Declare() {
     const [distraction, setDistraction] = useState<string[]>([]);
     const [starting, setStarting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [plan, setPlan] = useState<"open" | "25_5" | "50_10">("open");
+    const [listsEdited, setListsEdited] = useState(false);
+    const [carriedOver, setCarriedOver] = useState(false);
     const fieldId = useId();
 
     useEffect(() => {
         todaysTargets().then((targets) => {
+            if (targets.length > 0)
+                setCarriedOver(true);
             setWork(targets.filter((t) => t.role === "work").map((t) => t.target));
             setDistraction(targets.filter((t) => t.role === "distraction").map((t) => t.target));
         }, () => undefined);
@@ -36,12 +41,24 @@ export function Declare() {
 
     // One target lives on one list: adding it to one removes it from the other.
     const setOnly = (role: "work" | "distraction") => (items: string[]) => {
+        setListsEdited(true);
         if (role === "work") {
             setWork(items);
             setDistraction((d) => d.filter((i) => !items.includes(i)));
         } else {
             setDistraction(items);
             setWork((w) => w.filter((i) => !items.includes(i)));
+        }
+    };
+
+    const fillFromPreset = async () => {
+        if (listsEdited || carriedOver || intention.trim() === "")
+            return;
+        try {
+            const filled = await ledger.presets.fill(intention, work);
+            setDistraction(filled);
+        } catch {
+            /* preset fill is best-effort */
         }
     };
 
@@ -53,12 +70,18 @@ export function Declare() {
         setStarting(true);
         setError(null);
         try {
+            const cycle = plan === "open"
+                ? null
+                : plan === "25_5"
+                    ? {workMin: 25, breakMin: 5, count: 1}
+                    : {workMin: 50, breakMin: 10, count: 1};
             await ledger.session.start({
                 intention,
                 targets: [
                     ...work.map((target): DeclaredTarget => ({target, role: "work"})),
                     ...distraction.map((target): DeclaredTarget => ({target, role: "distraction"}))
-                ]
+                ],
+                cycle
             });
             go("running");
         } catch (err) {
@@ -87,6 +110,7 @@ export function Declare() {
                         autoFocus
                         placeholder="Send the invoice and draft the brief"
                         onChange={(e) => setIntention(e.target.value)}
+                        onBlur={() => void fillFromPreset()}
                         onKeyDown={(e) => {
                             if (e.key === "Enter" && (e.metaKey || e.ctrlKey))
                                 void start(e);
@@ -111,6 +135,22 @@ export function Declare() {
                     hint="Apps or sites that pull you away today."
                     placeholder="youtube.com"
                 />
+
+                <fieldset className="cycle-choice">
+                    <legend>Length</legend>
+                    <label className="switch-row">
+                        <input type="radio" name="cycle" checked={plan === "open"} onChange={() => setPlan("open")} />
+                        <span>Open</span>
+                    </label>
+                    <label className="switch-row">
+                        <input type="radio" name="cycle" checked={plan === "25_5"} onChange={() => setPlan("25_5")} />
+                        <span>25 work · 5 break</span>
+                    </label>
+                    <label className="switch-row">
+                        <input type="radio" name="cycle" checked={plan === "50_10"} onChange={() => setPlan("50_10")} />
+                        <span>50 work · 10 break</span>
+                    </label>
+                </fieldset>
 
                 {permissions.state === "error" && <ErrorNote title="The permission state could not be read." error={permissions.error} />}
                 {error != null && <ErrorNote title="The session did not start." error={error} />}

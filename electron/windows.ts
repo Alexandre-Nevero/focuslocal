@@ -6,13 +6,14 @@ import type {Route} from "../src/shared/types.ts";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const ROUTE_PATTERN = new RegExp(
-    "^(idle|declare|permissions|running|review/[\\w-]+|history|privacy|mini" +
+    "^(idle|declare|permissions|running|review/[\\w-]+|history|privacy|mini|companion|sites|block" +
     "|dashboard(/(day|week|month)/\\d{4}-\\d{2}-\\d{2})?|ledger(/\\d{4}-\\d{2}-\\d{2})?)$"
 );
 
 let mainWindow: BrowserWindow | null = null;
 let popover: BrowserWindow | null = null;
 let mini: BrowserWindow | null = null;
+let blockWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 function createWindow(route: Route, options: Electron.BrowserWindowConstructorOptions) {
@@ -44,7 +45,7 @@ function loadRoute(win: BrowserWindow, route: Route) {
 /** Shows the main window at a route, creating it if needed. */
 export function openMain(route: Route) {
     if (mainWindow == null || mainWindow.isDestroyed()) {
-        mainWindow = createWindow(route, {width: 960, height: 700, title: "Ledger", show: true});
+        mainWindow = createWindow(route, {width: 960, height: 700, title: "Twofold", show: true});
         mainWindow.on("closed", () => mainWindow = null);
     } else {
         loadRoute(mainWindow, route);
@@ -93,14 +94,30 @@ export function toggleMiniWindow() {
     mini.on("closed", () => mini = null);
 }
 
+export function showBlock(): void {
+    if (blockWindow != null && !blockWindow.isDestroyed()) {
+        blockWindow.show();
+        blockWindow.focus();
+        return;
+    }
+    blockWindow = createWindow("block", {
+        width: 360, height: 220, frame: false, resizable: false, alwaysOnTop: true, skipTaskbar: true, show: true
+    });
+    blockWindow.on("closed", () => blockWindow = null);
+}
+
+export function setTrayTip(text: string): void {
+    tray?.setToolTip(text);
+}
+
 export function createTray() {
     // Tray icons must be raster (nativeImage does not read SVG). Placeholder mark until the UI/UX issue ships the real one.
     const icon = nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC, "tray-icon.png"));
     tray = new Tray(icon);
-    tray.setToolTip("Ledger");
+    tray.setToolTip("Twofold");
     tray.on("click", togglePopover);
     tray.on("right-click", () => tray?.popUpContextMenu(Menu.buildFromTemplate([
-        {label: "Open Ledger", click: () => openMain("idle")},
+        {label: "Open Twofold", click: () => openMain("idle")},
         {label: "Show mini window", click: toggleMiniWindow},
         {type: "separator"},
         {label: "Quit", click: () => app.quit()}

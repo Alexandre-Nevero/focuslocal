@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" aria-hidden="true">
+  <defs>
+    <!-- Twofold mascot, drawn from the Mascot character asset board: a soft cream page card on a warm tan backing layer,
+         simple oval eyes, thin rounded dark-brown limbs. Appearance never depends on an outcome or a verdict. -->
+    <linearGradient id="tf-back" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E7B676" />
+      <stop offset="1" stop-color="#C98A45" />
+    </linearGradient>
+    <linearGradient id="tf-front" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#FFFAF1" />
+      <stop offset="1" stop-color="#EFE3CF" />
+    </linearGradient>
+    <linearGradient id="tf-board" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E2AE6C" />
+      <stop offset="1" stop-color="#C98A45" />
+    </linearGradient>
+
+    <!-- Backing layer: the supportive silhouette, offset up and left, with the folder-like tab. -->
+    <g id="body">
+      <path d="M56 46c0-14 11-25 25-25h34c9 0 14 4 18 10l4 6h40c15 0 26 11 26 26v104c0 15-11 26-26 26H82c-14 0-26-12-26-26V46Z"
+            fill="url(#tf-back)" stroke="#B9783A" stroke-width="2.5" />
+      <!-- Paper thickness under the front card. -->
+      <path d="M74 88c0-17 13-30 30-30h84c17 0 30 13 30 30v92c0 17-13 30-30 30H98c-13 0-24-11-24-24V88Z" fill="#DCC6A4" />
+      <!-- Front card: soft page with a larger rounded top-right corner. -->
+      <path d="M70 82c0-17 13-30 30-30h82c19 0 32 14 32 32v90c0 17-13 30-30 30H94c-13 0-24-11-24-24V82Z"
+            fill="url(#tf-front)" stroke="#E2CFB1" stroke-width="2" />
+      <path d="M86 66c22-6 58-8 88-4" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.7" />
+    </g>
+
+    <g id="eyes">
+      <ellipse cx="124" cy="124" rx="7.5" ry="14" fill="#3B2D22" />
+      <ellipse cx="160" cy="124" rx="7.5" ry="14" fill="#3B2D22" />
+      <ellipse cx="121.5" cy="117" rx="2.2" ry="3.4" fill="#FFFFFF" opacity="0.55" />
+      <ellipse cx="157.5" cy="117" rx="2.2" ry="3.4" fill="#FFFFFF" opacity="0.55" />
+    </g>
+
+    <g id="eyes-curious">
+      <ellipse cx="124" cy="126" rx="7" ry="12" fill="#3B2D22" />
+      <ellipse cx="160" cy="122" rx="8.5" ry="15" fill="#3B2D22" />
+    </g>
+
+    <g id="legs">
+      <path d="M114 204v24M166 204v24" fill="none" stroke="#3B2D22" stroke-width="7" stroke-linecap="round" />
+      <path d="M100 236c0-7 6-11 14-11h5c6 0 9 4 9 8s-3 6-8 6h-16c-3 0-4-1-4-3Z" fill="#3B2D22" />
+      <path d="M152 236c0-7 6-11 14-11h5c6 0 9 4 9 8s-3 6-8 6h-16c-3 0-4-1-4-3Z" fill="#3B2D22" />
+    </g>
+
+    <g id="legs-lifted">
+      <path d="M114 204l-6 20M166 204l8 18" fill="none" stroke="#3B2D22" stroke-width="7" stroke-linecap="round" />
+      <ellipse cx="104" cy="230" rx="13" ry="8" fill="#3B2D22" />
+      <ellipse cx="180" cy="226" rx="13" ry="8" fill="#3B2D22" />
+    </g>
+
+    <g id="arms-rest" fill="none" stroke="#3B2D22" stroke-width="7" stroke-linecap="round">
+      <path d="M72 146c-14 6-20 18-20 32" />
+      <path d="M213 144c14 6 20 18 20 32" />
+    </g>
+    <g id="hands-rest" fill="#3B2D22">
+      <circle cx="52" cy="182" r="9" />
+      <circle cx="233" cy="180" r="9" />
+    </g>
+  </defs>
+
+  <symbol id="pose-idle" viewBox="0 0 256 256">
+    <use href="#legs" />
+    <use href="#body" />
+    <use href="#arms-rest" />
+    <use href="#hands-rest" />
+    <use href="#eyes" />
+  </symbol>
+
+  <!-- Hover: a small wave, the same as the board's waving pose. -->
+  <symbol id="pose-hover" viewBox="0 0 256 256">
+    <use href="#legs" />
+    <use href="#body" />
+    <path d="M72 146c-14 6-20 18-20 32" fill="none" stroke="#3B2D22" stroke-width="7" stroke-linecap="round" />
+    <path d="M213 140c14-6 20-22 18-40" fill="none" stroke="#3B2D22" stroke-width="7" stroke-linecap="round" />
+    <circle cx="52" cy="182" r="9" fill="#3B2D22" />
+    <circle cx="230" cy="94" r="9" fill="#3B2D22" />
+    <path d="M222 70l6-12M236 74l11-8M244 88h12" fill="none" stroke="#E4A33B" stroke-width="4" stroke-linecap="round" />
+    <use href="#eyes" />
+  </symbol>
+
+  <!-- Dragging: lifted off the desktop, arms up, feet dangling. -->
+  <symbol id="pose-dragging" viewBox="0 0 256 256">
+    <use href="#legs-lifted" />
+    <use href="#body" />
+    <path d="M72 140c-14-4-22-18-22-34M213 138c14-4 22-18 22-34" fill="none" stroke="#3B2D22" stroke-width="7" stroke-linecap="round" />
+    <circle cx="50" cy="100" r="9" fill="#3B2D22" />
+    <circle cx="235" cy="98" r="9" fill="#3B2D22" />
+    <use href="#eyes-curious" />
+  </symbol>
+
+  <!-- Coach: holding the planning clipboard from the accessory callouts. -->
+  <symbol id="pose-coach" viewBox="0 0 256 256">
+    <use href="#legs" />
+    <use href="#body" />
+    <use href="#eyes" />
+    <path d="M72 146c4 16 18 26 36 28M213 146c-4 16-16 26-32 28" fill="none" stroke="#3B2D22" stroke-width="7" stroke-linecap="round" />
+    <g transform="rotate(-6 146 186)">
+      <rect x="104" y="160" width="84" height="58" rx="8" fill="url(#tf-board)" stroke="#9E6630" stroke-width="2.5" />
+      <rect x="114" y="168" width="64" height="44" rx="4" fill="#FBF4EA" />
+      <rect x="132" y="154" width="28" height="12" rx="5" fill="#3B2D22" />
+      <path d="M122 182h44M122 194h30" stroke="#C9B394" stroke-width="4" stroke-linecap="round" />
+    </g>
+    <circle cx="108" cy="176" r="9" fill="#3B2D22" />
+    <circle cx="182" cy="176" r="9" fill="#3B2D22" />
+  </symbol>
+
+  <!-- Face mark for app chrome: the card's corner on its backing layer, two eyes, legible at 28 px. -->
+  <symbol id="mascot-face" viewBox="0 0 64 64">
+    <rect x="6" y="4" width="46" height="50" rx="12" fill="url(#tf-back)" stroke="#B9783A" stroke-width="1.5" />
+    <rect x="13" y="12" width="47" height="48" rx="13" fill="#DCC6A4" />
+    <rect x="12" y="10" width="46" height="48" rx="13" fill="url(#tf-front)" stroke="#E2CFB1" stroke-width="1" />
+    <ellipse cx="29" cy="33" rx="3.6" ry="6.4" fill="#3B2D22" />
+    <ellipse cx="42" cy="33" rx="3.6" ry="6.4" fill="#3B2D22" />
+  </symbol>
+  <use href="#pose-dragging" x="0" y="0" width="256" height="256" />
+</svg>

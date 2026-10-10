@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {defineConfig} from "vite";
@@ -52,6 +53,17 @@ export default defineConfig({
                     return startup(debugPort != null ? [".", `--remote-debugging-port=${debugPort}`] : ["."]);
                 },
                 vite: {
+                    plugins: [{
+                        // electron/ai/coach.ts reads its corpus from beside the built main bundle (ADR-014).
+                        name: "ledger-coach-corpus",
+                        generateBundle() {
+                            this.emitFile({
+                                type: "asset",
+                                fileName: "coach-corpus.json",
+                                source: fs.readFileSync(path.join(__dirname, "electron/ai/coach-corpus.json"), "utf8")
+                            });
+                        }
+                    }],
                     build: {
                         target: "es2022",
                         outDir: path.join(__dirname, "dist-electron"),

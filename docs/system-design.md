@@ -40,11 +40,11 @@ The boundary is the machine. There is no account server and no model API on the 
 | Store | Read and write the local file | The file and its transactions, not the meaning of a row | The disk | F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008 |
 | NativeHost | Relay the active tab and session status between the extension and Store | Nothing | Store, browser extension | F-002, F-001 |
 | Widgets | Tray, mini window, desktop layer. Show the running session. | Nothing. Reads the session only. | Store | F-001 |
-| Coach | Talk about one ended session, from figures Store already has. | Coach turns. Not verdicts. | Store, local model runtime | F-011 |
+| Coach | Post-session conversation about one ended session, from figures Store already has ([ADR-017](adr/ADR-017-coach-and-companion.md)); one in-session Qwen reading of the typed intention per [ADR-019](adr/ADR-019-intention-reading.md), not a labeler. | Coach turns. Not verdicts. | Store, Harness, local model runtime | F-011 |
 | Companion | The pet. Drag, hover, tap. While a session runs, the popup is the running view plus "This isn't the work". | The pet's position. A tap goes to Harness. | Store, Harness, Coach | F-014, F-011 |
 | Blocker | Stop a site or hide a desktop app on today's block list. Record the reach. | Block hits. Not durations. | Capture, the extension, Store | F-009 |
 
-SessionUI does not write verdicts. A tap goes to Harness, including "This isn't the work" on the companion. Eval does not write user visits. Fixtures stay in the eval set. Widgets, the companion, and the extension popup never show verdicts. The coach does not run while a session is open.
+SessionUI does not write verdicts. A tap goes to Harness, including "This isn't the work" on the companion. Eval does not write user visits. Fixtures stay in the eval set. Widgets, the companion, and the extension popup never show verdicts. The post-session coach conversation runs only after the session has ended ([ADR-017](adr/ADR-017-coach-and-companion.md)); it never labels, votes, or replaces a verdict. The one in-session Qwen reading of the typed intention may run during the block ([ADR-019](adr/ADR-019-intention-reading.md)); the reading does not label, vote, explain, or replace a Decider decision.
 
 ## 3. Data Flow
 
@@ -96,7 +96,8 @@ The probe, so it is not mistaken for a budget. On 2026-10-09, `SystemLanguageMod
 | Browser URL | Windows: x-win (UIA, Firefox included). macOS: x-win (AppleScript, no Firefox). Linux: browser extension only. | URL not readable for that browser | The visit keeps app and title. URL stays empty. Harness may return unclear. |
 | Native messaging | Chrome/Edge/Brave native host, stdio, length-framed JSON | Extension or host missing, incognito, or browser closed | URL comes from x-win, or stays empty. Capture does not wait. |
 | Desktop widget file | `widget.txt` in the Ledger dir, read by xfce4-genmon (Linux) | File absent or stale | Genmon shows "Ledger idle". Nothing else depends on it. |
-| Local model runtime | In-process node-llama-cpp call | Model file missing, out of memory, timeout, or a string outside the three labels | Harness stores unclear and does not block Capture or End (US-003, BR-003). |
+| Decider runtime | In-process node-llama-cpp call on CPU | Decider file missing, out of memory, timeout, or a string outside the three labels | Harness stores unclear and does not block Capture or End (US-003, BR-003). |
+| Qwen runtime | Same process; shared weights for coach and the one intention reading | Qwen file missing or failed load | Review and residual judging continue. The intention reading falls back to the typed sentence; `coach.ask` still rejects. Start and End are unaffected. |
 | Network | None | Not applicable. This build does not open one. | Nothing in the review waits on it. A dependency that phones home is outside what the privacy panel can see (US-008). |
 
 ## 6. Deployment Topology
@@ -151,7 +152,7 @@ Layout of the `electron-typescript-react` template (Vite + `vite-plugin-electron
 - `electron/preload.ts`: `window.ledger`.
 - `electron/capture/poller.ts`: the 1 s loop below.
 - `electron/harness/rules.ts`, `memory.ts` (the memory key, shared with `review.tap`), `harness.ts` (`labelWindow`: rules → memory → model, no Electron imports), `queue.ts` (the single-flight queue: reads the visit, writes the verdict, emits).
-- `electron/ai/judge.ts` (model load, warmup, System One `decide()`; no Electron imports), `electron/ai/coach.ts` (the post-session chat), `electron/ai/runtime.ts` (status, model path). As of `0320c53`, `judge.ts` still runs the ADR-005 agreement pass. [ADR-011](adr/ADR-011-coach-companion-and-system-one.md) is the spec. The code change is later.
+- `electron/ai/judge.ts` (Decider load, warmup, `judgeWindow`; no Electron imports), `electron/ai/coach.ts` (`intentPrompt`, `acceptIntent`, `analyzeIntention`, post-session chat), `electron/ai/runtime.ts` (status, model paths).
 - `electron/eval/run.ts`: a second entry of the main Vite build (`dist-electron/eval.js`), so it imports only Electron-free modules.
 - `src/`: the React renderer, one bundle; `#/<route>` picks the screen.
 - `native-host/host.ts`, built by `vite.host.config.ts` (`npm run build:host`) to `out/native-host/host.js`.
@@ -210,15 +211,17 @@ Main thread, `setInterval` 1000 ms.
 
 ### Harness
 
-Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](adr/ADR-002-harness-order.md). Model stage per [ADR-011](adr/ADR-011-coach-companion-and-system-one.md): System One only. The coach waits until this queue is idle, and does not run during a session.
+Single-flight FIFO queue in main; one judgment at a time. Order per [ADR-002](adr/ADR-002-harness-order.md). Model stage per [ADR-016](adr/ADR-016-decider-only-decisions.md): Decider only. Post-session `coach.ask` waits until this queue is idle.
 
 Queued/in-flight work belongs to the current database generation. Delete and quit clear queued IDs and advance that generation. After inference, a stale result returns before acquiring Store or writing, so it cannot recreate a deleted DB or contaminate a replacement. End does not invalidate work: ended-session verdicts continue. A user tap made during inference wins because queue insertion does not overwrite an existing verdict. Learning contribution ownership and resets are defined in [data-model §2–4](data-model.md), justified in [ADR-010](adr/ADR-010-backend-work-ownership.md).
 
 1. **Rules.** Normalize targets to lowercase. A target containing `.` is a site: it matches if the URL hostname equals it or ends with `.`+target, or, when the URL is null, if the target's first label (`youtube` from `youtube.com`) appears as a whole word in the lowercased title. Any other target is an app: it matches if it equals `exec_name` lowercased without `.exe`/`.app`, or appears as a whole word in the lowercased `app_name`. x-win names Word `WINWORD` / "Microsoft Word", so plain equality would miss the name a person types. A site match beats an app match. Source `rule`, label from the role (`work` → serves, `distraction` → drifts).
 2. **Memory.** `match_key` = URL hostname if a URL exists. Otherwise it is the lowercased `exec_name` (`app_name` on rows without one), unless the window is a known browser, in which case it is null and memory is skipped. Apply only when `tap_count ≥ 2` (BR-004). Source `memory`. `review.tap` computes the same key.
 3. **Model.**
-   - While the runtime is `loading`, the queue waits (the visit shows "Judging…"). If the intention is empty, or the runtime ended `missing-file` or `failed:…`, store `unclear` with source `model` and `model_id` null (BR-003).
-   - System One uses these label definitions:
+   - While Decider is `loading`, the queue waits (the visit shows "Judging…"). If the intention is empty, or Decider ended `missing-file` or `failed:…`, store `unclear` with source `model` and `model_id` null (BR-003). Empty intention does not call Qwen.
+   - Decider alone supplies the label. There is no reason, and Qwen takes no part in the verdict: no reason, no vote, no fallback. The judged string is `analyzed_intent` when that column is non-null, otherwise the typed intention. Only the model stage awaits the one reading; rules and memory do not call Qwen and do not wait ([ADR-019](adr/ADR-019-intention-reading.md)).
+   - `prepareIntent` starts the reading at Start without blocking it. A missing, rejected, or failed reading sends the typed sentence to Decider. Eval judges fixture intentions only; it does not pass a reading callback.
+   - Decider uses these label definitions:
      ```ts
      const DEFINITIONS = {
        serves: 'Work on this task: the file, tool, reference page, or message for it',
@@ -228,13 +231,12 @@ Queued/in-flight work belongs to the current database generation. Delete and qui
      const question = `The person said they are working on: "${intention}". Is this window part of that work?`;
      const doc = `App: ${appName}\nTitle: ${title.slice(0, 200)}\nURL: ${url ?? 'none'}`;
      ```
-   - `decisionContext.decide(doc, {label: {type: 'choice', instruction: question, criteria: DEFINITIONS}})`. Keep the criteria in this order (serves, drifts, unclear); reversing it cost 2 of 43 dev cases.
-   - Why this wording (dev set, 43 authored Windows cases, `spike/tune.mjs`): the first wording ("plausibly used to do the intention" / "unrelated to the intention") made System One answer `serves` on 43 of 43. With these definitions and the intention in the question, it was right on 33/43 (15/15 drifts). The agreement-pass numbers that used to sit here (38/43, 0.82) described ADR-005. They are not this judge's result. Re-run the eval before quoting one.
-   - Stored `label` = the System One choice. Stored `confidence` = its confidence. `reason` = null. `model_id` = `qwen3.5-2b-q4_k_m`. `model_stage` = `decide`. `latency_ms` = that call.
+   - Readout per [ADR-016](adr/ADR-016-decider-only-decisions.md): maker state-first prompt, filtered A/B/C logits, restricted softmax at T = 1.164. Keep the criteria in this order (serves, drifts, unclear); reversing it cost 2 of 43 dev cases.
+   - Stored `label` = the Decider choice. Stored `confidence` = its confidence. `reason` = null. `model_id` = `decider-2b-v11-q4_k_m-cpu-t1.164-p1`. `model_stage` = `decide`. `latency_ms` = that call.
    - Budget: 10 s. On timeout or error, store `unclear` with the error-free fields null. The abort signal is only checked between native evaluations, so a timed-out call can return a few seconds late (14.7 s observed against 10 s, spike O1).
 4. Emit `verdict:updated`.
 
-**Display gate:** `shown` = `label` unless source is `model` and (`tau` is null or `confidence < tau`), in which case `shown` = `unclear`. The gate is applied when the review is read, so a new τ applies to past sessions.
+**Display:** `shown` is the stored label, except a stored `unclear` from before [ADR-020](adr/ADR-020-model-label-is-always-serves-or-drifts.md) is shown as drifts. A missing τ, or confidence below τ, does not replace a model Serves or Drifts ([ADR-018](adr/ADR-018-model-always-answers.md)). The harness stores only Serves or Drifts on the model path; the person may correct a label via **Not this** ([ADR-020](adr/ADR-020-model-label-is-always-serves-or-drifts.md)).
 
 ### Runtime
 
@@ -281,7 +283,9 @@ Queued/in-flight work belongs to the current database generation. Delete and qui
 
 ### Coach
 
-Same loaded model, separate `LlamaChatSession`, `QwenChatWrapper({variation: '3.5', thoughts: 'discourage'})`, `maxTokens: 220`, 20 s timeout. `thoughts: 'discourage'` is the spike O1 fix for a `<think>` segment eating the reply.
+Post-session only ([ADR-017](adr/ADR-017-coach-and-companion.md)). During a block, `analyzeIntention` may run once per session for the typed sentence; that reading is not coach conversation and does not label ([ADR-019](adr/ADR-019-intention-reading.md)).
+
+Same loaded Qwen weights, separate `LlamaChatSession`, `QwenChatWrapper({variation: '3.5', thoughts: 'discourage'})`, `maxTokens: 220`, 20 s timeout. `thoughts: 'discourage'` is the spike O1 fix for a `<think>` segment eating the reply.
 
 The data block is computed in code, then fenced. For the session just ended: intention, outcome, each visit's app, shown label, and source, block hits, away, and unrecorded time. For the local file: session count, yes count, not-yet count, time per shown label, and any app or site reached for on more than one session. History is empty on the first session. The prompt also receives `electron/ai/coach-corpus.json`. C9, C11, C12, and C13 are constraints, not advice. C21 may be used. C22's numbers may not. The user's text is inside a fence. Newlines in it are stripped. The prompt says never praise "yes" or scold "not yet", and never state a score, rate, streak, or hours headline.
 
@@ -334,7 +338,8 @@ While a session runs, the popup shows the intention, the clock, End, and "This i
 | Titles over 512 chars | Truncated to 512; the model sees the first 200 | — |
 | Prompt injection in a title | Label constrained to 3 options by `decide()` and the grammar, then passes the τ gate | BR-003 |
 | Non-English titles | Passed as-is; low confidence falls under τ and shows unclear | US-009 |
-| Model file missing | Status `missing-file`; model verdicts `unclear`; Start and End unaffected | US-001, BR-003 |
+| Decider file missing | Status `missing-file`; model verdicts `unclear`; Start and End unaffected | US-001, BR-003 |
+| Qwen file missing | Intention reading falls back to the typed sentence; `coach.ask` still rejects; Decider-missing behavior unchanged | US-001, US-003, US-011, BR-003 |
 | VRAM out of memory | `InsufficientMemoryError` → retry once with `gpu: false`; else `failed:<message>` | BR-003 |
 | Session ended while the queue is still judging | Rows show "Judging…" until `verdict:updated` | ADR-001 |
 | Conflicting taps | Latest tap is the user verdict; current memory contributions reset before its vote counts as 1, with historical labels retained | BR-004 |

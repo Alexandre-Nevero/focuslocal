@@ -32,5 +32,5 @@ test("legacy aggregate memory loses eligibility without losing historical labels
     };
     const next = await labelWindow({intention: "Finish the authored note", targets: []},
         {appName: "Notepad", execName: "notepad.exe", title: "Authored note", url: null}, recall, null);
-    assert.deepEqual([next.source, next.label, next.memoryId], ["model", "unclear", null]);
+    assert.deepEqual([next.source, next.label, next.memoryId], ["model", "drifts", null]);
 });

@@ -182,6 +182,10 @@ test("native host process preserves framing, database ownership and privacy", {t
         ]);
     });
 
+    await t.test("blocklist with no running session returns empty sites", async () => {
+        assert.deepEqual((await run(frame({type: "blocklist"}))).messages, [{sites: []}]);
+    });
+
     await t.test("EOF flushes large replies and oversized replies remain valid frames", async () => {
         const db = new DatabaseSync(file);
         db.prepare("UPDATE session SET intention = ''").run();
